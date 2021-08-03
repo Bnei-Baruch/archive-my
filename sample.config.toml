@@ -1,0 +1,13 @@
+[server]
+bind-address = ":8080"
+mode = "debug"  # GIN mode. Either debug, release or test
+boiler-mode = "debug"  # Either debug or something else.
+
+[mdb]
+url = "postgres://localhost/mdb?sslmode=disable&user=postgres&password=12345"
+
+[app]
+issuer = "https://account-server/auth/realms/main"
+mydb = "postgres://localhost/mydb?sslmode=disable&user=postgres&password=12345"
+scan_url = "https://chronicle-sserver/scan"
+migration-dir = "file://migrations"
