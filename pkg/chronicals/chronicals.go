@@ -212,9 +212,9 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, ev *ChronicleEvent) error {
 	}
 
 	unitUID := fmt.Sprint(data["unit_uid"])
-	if err := c.updateSubscriptions(tx, ev, unitUID); err != nil {
+	/*if err := c.updateSubscriptions(tx, ev, unitUID); err != nil {
 		return err
-	}
+	}*/
 	nParams := make(map[string]interface{})
 	nParams["current_time"] = data["current_time"]
 
@@ -235,11 +235,11 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, ev *ChronicleEvent) error {
 	sDay := time.Date(year, month, day, 0, 0, 0, 0, timeZone)
 	eDay := sDay.Add(24 * time.Hour)
 	log.Infof("%v, %v", sDay, eDay)
-	h, err := models.Histories(
+	h, errDB := models.Histories(
 		//qm.Where("account_id = ? AND unit_uid = ?", ev.AccountId, unitUID),
-		qm.Where("account_id = ? AND unit_uid = ? AND created_at > ? AND  and created_at < ?", ev.AccountId, unitUID, sDay, eDay),
+		qm.Where("account_id = ? AND unit_uid = ? AND created_at > ? AND created_at < ?", ev.AccountId, unitUID, sDay, eDay),
 	).One(tx)
-	if err == sql.ErrNoRows {
+	if errDB == sql.ErrNoRows {
 		h = &models.History{
 			AccountID:   ev.AccountId[0:36],
 			ChronicleID: ev.ID,
@@ -248,7 +248,7 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, ev *ChronicleEvent) error {
 			CreatedAt:   ev.CreatedAt,
 		}
 		return h.Insert(tx, boil.Infer())
-	} else if err != nil {
+	} else if errDB != nil {
 		return err
 	}
 
