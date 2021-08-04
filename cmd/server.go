@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"archive-my/api"
-	"archive-my/pkg/chronicals"
+	"archive-my/pkg/chronicles"
 )
 
 var serverCmd = &cobra.Command{
@@ -18,8 +18,9 @@ func init() {
 }
 
 func serverFn(cmd *cobra.Command, args []string) {
-	a := api.App{}
+	a := new(api.App)
 	a.InitDeps()
-	new(chronicals.Chronicles).Run()
+	chr := new(chronicles.Chronicles)
+	chr.Run()
 	a.Run()
 }

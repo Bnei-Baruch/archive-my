@@ -1,4 +1,4 @@
-package chronicals
+package chronicles
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
 	"archive-my/models"
@@ -38,6 +39,9 @@ type Chronicles struct {
 	lastReadId    string
 	prevReadId    string
 	nextRefresh   time.Time
+
+	DBstr  string
+	MDBstr string
 }
 
 type ScanResponse struct {
@@ -66,24 +70,27 @@ type ChronicleEventData struct {
 	CurrentTime null.Int64 `json:"current_time,omitempty"`
 }
 
+func (c *Chronicles) Init(dbstr, mdbstr string) {
+	if dbstr == "" {
+		dbstr = viper.GetString("app.mydb")
+	}
+	c.DBstr = dbstr
+
+	if mdbstr == "" {
+		dbstr = viper.GetString("app.mdb")
+	}
+	c.MDBstr = mdbstr
+}
+
 func (c *Chronicles) Run() {
 	c.interval = MIN_INTERVAL
 	c.ticker = time.NewTicker(MIN_INTERVAL)
 	c.evByAcc = make(map[string]*ChronicleEvent, 0)
 
-	db, err := sql.Open("postgres", viper.GetString("app.mydb"))
+	var err error
+	c.lastReadId, err = c.lastChroniclesId()
 	utils.Must(err)
-	utils.Must(db.Ping())
-	defer db.Close()
 
-	h, err := models.Histories(qm.OrderBy("chronicle_id")).One(db)
-	if err == sql.ErrNoRows {
-		c.lastReadId = ""
-	} else if err != nil {
-		utils.Must(err)
-	} else {
-		c.lastReadId = h.ChronicleID
-	}
 	c.chroniclesUrl = viper.GetString("app.scan_url")
 	go func() {
 		refresh := func() {
@@ -97,6 +104,25 @@ func (c *Chronicles) Run() {
 			refresh()
 		}
 	}()
+}
+
+func (c *Chronicles) lastChroniclesId() (string, error) {
+	db, err := sql.Open("postgres", c.DBstr)
+	if err != nil {
+		return "", err
+	}
+	if err := db.Ping(); err != nil {
+		return "", err
+	}
+	defer db.Close()
+
+	h, err := models.Histories(qm.OrderBy("chronicle_id")).One(db)
+	if err == sql.ErrNoRows {
+		return "", nil
+	} else if err != nil {
+		return "", err
+	}
+	return h.ChronicleID, nil
 }
 
 func (c *Chronicles) refresh() error {
@@ -146,14 +172,15 @@ func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
 }
 
 func (c *Chronicles) saveEvents(events []*ChronicleEvent) error {
-	db, err := sql.Open("postgres", viper.GetString("app.mydb"))
-	if err != nil {
-		return err
-	}
-	if err := db.Ping(); err != nil {
-		return err
-	}
+	db, err := sql.Open("postgres", c.DBstr)
+	utils.Must(err)
+	utils.Must(db.Ping())
 	defer db.Close()
+
+	mdb, err := sql.Open("postgres", c.MDBstr)
+	utils.Must(err)
+	utils.Must(mdb.Ping())
+	defer mdb.Close()
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -187,7 +214,7 @@ func (c *Chronicles) saveEvents(events []*ChronicleEvent) error {
 			continue
 		}
 		c.evByAcc[x.AccountId] = nil
-		err = c.insertEvent(tx, x)
+		err = c.insertEvent(tx, mdb, x)
 		if err != nil {
 			break
 		}
@@ -205,16 +232,16 @@ func (c *Chronicles) saveEvents(events []*ChronicleEvent) error {
 	return nil
 }
 
-func (c *Chronicles) insertEvent(tx *sql.Tx, ev *ChronicleEvent) error {
+func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal(ev.Data.JSON, &data); err != nil {
 		return err
 	}
 
 	unitUID := fmt.Sprint(data["unit_uid"])
-	/*if err := c.updateSubscriptions(tx, ev, unitUID); err != nil {
+	if err := c.updateSubscriptions(tx, mdb, ev, unitUID); err != nil {
 		return err
-	}*/
+	}
 	nParams := make(map[string]interface{})
 	nParams["current_time"] = data["current_time"]
 
@@ -236,7 +263,6 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, ev *ChronicleEvent) error {
 	eDay := sDay.Add(24 * time.Hour)
 	log.Infof("%v, %v", sDay, eDay)
 	h, errDB := models.Histories(
-		//qm.Where("account_id = ? AND unit_uid = ?", ev.AccountId, unitUID),
 		qm.Where("account_id = ? AND unit_uid = ? AND created_at > ? AND created_at < ?", ev.AccountId, unitUID, sDay, eDay),
 	).One(tx)
 	if errDB == sql.ErrNoRows {
@@ -261,23 +287,48 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, ev *ChronicleEvent) error {
 	return err
 }
 
-func (c *Chronicles) updateSubscriptions(tx *sql.Tx, ev *ChronicleEvent, uid string) error {
+func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent, uid string) error {
 	if ev.ClientEventType != CR_EVENT_TYPE_PLAYER_PLAY {
 		return nil
 	}
-	var cuIDs []int64
-	err := models.Subscriptions(
+	subs, err := models.Subscriptions(
 		qm.Select("collection_id"),
 		qm.Where("account_id = ?", ev.AccountId),
-	).QueryRow(tx).Scan(&cuIDs)
-	/*
-		exist, err := modelsMdb.ContentUnitsG(
-			qm.InnerJoin("collections_content_units ccu ON \"content_unit\".id = ccu.content_unit_id"),
-			qm.InnerJoin("collections c ON ccu.collection_id = c.id"),
-			qm.Where("\"content_unit\".uid = ? AND c.id IN (SELECT id FROM collections c where )", uid),
-		).Exists()
-		modelsMdb.CollectionsContentUnitsG(qm.WhereIn("collection_id IN ?", utils.ConvertArgsInt64(cuIDs)...)).Exists()
-	*/
+	).All(tx)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	coUIDs := make([]string, len(subs))
+	for i, s := range subs {
+		coUIDs[i] = s.CollectionUID.String
+	}
+
+	query := `SELECT co.uid FROM collections_content_units ccu
+			INNER JOIN content_units cu ON ccu.content_unit_id = cu.id
+			INNER JOIN collections co ON ccu.collection_id = co.id
+			WHERE cu.uid = ? AND co.uid IN [%s]`
+	var subCOs []string
+	if err := queries.Raw(query, uid, coUIDs).QueryRow(mdb).Scan(&subCOs); err == sql.ErrNoRows || len(subCOs) == 0 {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	forUpdate := models.SubscriptionSlice{}
+	for _, s := range subs {
+		for _, sc := range subCOs {
+			if sc == s.CollectionUID.String {
+				forUpdate = append(forUpdate, s)
+			}
+		}
+	}
+
+	col := make(map[string]interface{}, 0)
+	col["updated_at"] = time.Now()
+	_, err = forUpdate.UpdateAll(tx, col)
 	return err
 }
 
