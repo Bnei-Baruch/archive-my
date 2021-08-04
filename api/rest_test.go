@@ -55,6 +55,7 @@ func (s *RestTestSuite) TearDownTest() {
 	s.Require().Nil(err)
 }
 
+/* TESTS */
 func (s *RestTestSuite) TestLikes() {
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 1, StopIndex: 10})
 	s.Require().Nil(err)
@@ -65,16 +66,17 @@ func (s *RestTestSuite) TestLikes() {
 	s.EqualValues(0, resp.Total, "empty total")
 	s.Empty(resp.Likes, "empty data")
 
-	likes := s.createDummyLike(10)
+	items := s.createDummyLike(10)
 	s.app.handleGetLikes(c)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(10, resp.Total, "total")
 	for i, x := range resp.Likes {
-		s.assertEqualLikes(likes[i], x, i)
+		s.assertEqualLikes(items[i], x, i)
 	}
 
-	likes[1].AccountID = "new_account_id"
-	s.NotNil(likes[1].Insert(s.tx, boil.Infer()))
+	items[1].AccountID = "new_account_id"
+	_, err = items[1].Update(s.tx, boil.Whitelist("account_id"))
+	s.Nil(err)
 	s.app.handleGetLikes(c)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(9, resp.Total, "total")
@@ -85,7 +87,7 @@ func (s *RestTestSuite) TestLikes() {
 	s.Nil(json.Unmarshal(wPart.Body.Bytes(), &resp))
 	s.EqualValues(4, resp.Total, "total")
 	for i, x := range resp.Likes {
-		s.assertEqualLikes(likes[i+5], x, i+5)
+		s.assertEqualLikes(items[i+5], x, i+5)
 	}
 
 	like := &models.Like{
@@ -93,7 +95,7 @@ func (s *RestTestSuite) TestLikes() {
 		AccountID:      s.kcId,
 		ContentUnitUID: utils.GenerateUID(8),
 	}
-	likes = append(likes, like)
+	items = append(items, like)
 	cAdd, wAdd, err := testutil.PrepareContext(like)
 	s.Require().Nil(err)
 	s.app.handleAddLikes(cAdd)
@@ -126,35 +128,42 @@ func (s *RestTestSuite) TestPlaylist() {
 	s.EqualValues(0, resp.Total, "empty total")
 	s.Empty(resp.Playlist, "empty data")
 
-	playlists := s.createDummyPlaylists(10, "It's play list")
+	items := s.createDummyPlaylists(10, "It's play list")
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.app.handleGetPlaylists(c)
 	s.EqualValues(10, resp.Total, "total")
 	for i, x := range resp.Playlist {
-		s.assertEqualPlaylist(playlists[i], x, i)
+		s.assertEqualPlaylist(items[i], x, i)
 	}
 
-	playlists[1].AccountID = "new_account_id"
-	s.NotNil(playlists[1].Insert(s.tx, boil.Infer()))
+	items[1].AccountID = "new_account_id"
+	_, err = items[1].Update(s.tx, boil.Whitelist("account_id"))
+	s.Nil(err)
 	s.app.handleGetPlaylists(c)
 	s.EqualValues(9, resp.Total, "total")
 
 	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 6, StopIndex: 10})
-	s.Require().Nil(err)
+	s.Nil(err)
 	s.app.handleGetPlaylists(cPart)
 	s.Nil(json.Unmarshal(wPart.Body.Bytes(), &resp))
 	s.EqualValues(4, resp.Total, "total")
 	for i, x := range resp.Playlist {
-		s.assertEqualPlaylist(playlists[i+5], x, i+5)
+		s.assertEqualPlaylist(items[i+5], x, i+5)
 	}
 
-	cAdd, wAdd, err := testutil.PrepareContext([]string{utils.GenerateUID(8)})
+	pl := &models.Playlist{
+		ID:        int64(11),
+		AccountID: s.kcId,
+		Name:      null.String{String: "playlist 11", Valid: false},
+		Public:    null.Bool{Bool: false, Valid: true},
+	}
+	cAdd, wAdd, err := testutil.PrepareContext(pl)
 	s.Nil(err)
 	s.app.handleAddToPlaylist(cAdd)
 	var respAdd []*models.Playlist
 	s.Nil(json.Unmarshal(wAdd.Body.Bytes(), &respAdd))
 	s.Len(resp, 1)
-	//s.assertEqualPlaylist(like, respAdd[0].(*models.Playlist), 11)
+	s.assertEqualPlaylist(items[11], respAdd[0], 11)
 
 	cDel, wDel, err := testutil.PrepareContext([]int64{respAdd[0].ID})
 	s.Nil(err)
@@ -162,11 +171,57 @@ func (s *RestTestSuite) TestPlaylist() {
 	var respDel []*models.Playlist
 	s.Nil(json.Unmarshal(wDel.Body.Bytes(), &respDel))
 	s.Len(respDel, 1)
-	//s.assertEqualLikes(like, respDel[0], 11)
+	s.assertEqualPlaylist(respAdd[0], respDel[0], 11)
 
 	s.app.handleGetPlaylists(c)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(9, resp.Total, "total")
+}
+
+func (s *RestTestSuite) TestHistory() {
+	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 1, StopIndex: 10})
+	s.Require().Nil(err)
+
+	s.app.handleGetHistory(c)
+	var resp historyResponse
+	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
+	s.EqualValues(0, resp.Total, "empty total")
+	s.Empty(resp.History, "empty data")
+
+	items := s.createDummyHistory(10)
+	s.app.handleGetHistory(c)
+	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
+	s.EqualValues(10, resp.Total, "total")
+	for i, x := range resp.History {
+		s.assertEqualHistory(items[i], x, i)
+	}
+
+	items[1].AccountID = "new_account_id"
+	_, err = items[1].Update(s.tx, boil.Whitelist("account_id"))
+	s.Nil(err)
+	s.app.handleGetHistory(c)
+	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
+	s.EqualValues(9, resp.Total, "total")
+
+	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 6, StopIndex: 10})
+	s.Require().Nil(err)
+	s.app.handleGetHistory(cPart)
+	s.Nil(json.Unmarshal(wPart.Body.Bytes(), &resp))
+	s.EqualValues(4, resp.Total, "total part")
+	for i, x := range resp.History {
+		s.assertEqualHistory(items[i+5], x, i+5)
+	}
+
+	cDel, wDel, err := testutil.PrepareContext([]int64{items[0].ID})
+	s.app.handleDeleteHistory(cDel)
+	var respDel gin.H
+	s.Nil(json.Unmarshal(wDel.Body.Bytes(), &respDel))
+	s.Len(respDel, 1)
+	s.Equal(respDel["0"].(int64), items[0].ID, "deleted right history")
+
+	s.app.handleGetHistory(c)
+	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
+	s.EqualValues(9, resp.Total, "total deleted")
 }
 
 /*
@@ -231,7 +286,7 @@ func (s *RestTestSuite) TestSubscriptions() {
 
 }
 */
-/*         helpers          */
+/* HELPERS */
 
 func (s *RestTestSuite) createDummyLike(n int64) []*models.Like {
 	likes := make([]*models.Like, n)
@@ -287,6 +342,26 @@ func (s *RestTestSuite) assertEqualPlaylist(l *models.Playlist, x *models.Playli
 	for i, u := range l.R.PlaylistItems {
 		s.Equal(u, x.R.PlaylistItems[i], "playlist.PlaylistItem (item index %d) [%d]", idx, i)
 	}
+}
+
+func (s *RestTestSuite) createDummyHistory(n int64) []*models.History {
+	items := make([]*models.History, n)
+	for i, l := range items {
+		items[i] = &models.History{
+			ID:          int64(i),
+			AccountID:   s.kcId,
+			ChronicleID: utils.GenerateUID(36),
+			UnitUID:     null.String{String: utils.GenerateUID(8), Valid: true},
+		}
+		s.Nil(l.Insert(s.tx, boil.Infer()))
+	}
+	return items
+}
+
+func (s *RestTestSuite) assertEqualHistory(l *models.History, x *models.History, idx int) {
+	s.Equal(l.ID, x.ID, "like.ID [%d]", idx)
+	s.Equal(l.AccountID, x.AccountID, "like.AccountID [%d]", idx)
+	s.Equal(l.UnitUID, x.UnitUID, "like.UnitUID [%d]", idx)
 }
 
 /*
