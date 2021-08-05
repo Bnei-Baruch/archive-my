@@ -3,21 +3,21 @@ package api
 import "archive-my/models"
 
 type playlistsResponse struct {
-	Playlist []*models.Playlist `json:"playlist"`
+	Playlist []*models.Playlist `json:"items"`
 	ListResponse
 }
 
 type likesResponse struct {
-	Likes []*models.Like `json:"likes"`
+	Likes []*models.Like `json:"items"`
 	ListResponse
 }
 
 type subscriptionsResponse struct {
-	Subscriptions []*models.Subscription `json:"subscriptions"`
+	Subscriptions []*models.Subscription `json:"items"`
 	ListResponse
 }
 type historyResponse struct {
-	History []*models.History `json:"history"`
+	History []*models.History `json:"items"`
 	ListResponse
 }
 
@@ -29,10 +29,16 @@ type subscribeRequest struct {
 type ListRequest struct {
 	PageNumber int    `json:"page_no" form:"page_no" binding:"omitempty,min=1"`
 	PageSize   int    `json:"page_size" form:"page_size" binding:"omitempty,min=1"`
-	StartIndex int    `json:"start_index" form:"start_index" binding:"omitempty,min=1"`
-	StopIndex  int    `json:"stop_index" form:"stop_index" binding:"omitempty,min=1"`
 	OrderBy    string `json:"order_by" form:"order_by" binding:"omitempty"`
 	GroupBy    string `json:"-"`
+}
+
+type UIDsRequest struct {
+	UIDs []string `json:"uids" form:"content_unit_uids" binding:"omitempty"`
+}
+
+type IDsRequest struct {
+	IDs []int64 `json:"ids" form:"ids" binding:"omitempty"`
 }
 
 type ListResponse struct {

@@ -23,42 +23,42 @@ import (
 
 // Subscription is an object representing the database table.
 type Subscription struct {
-	ID              int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	AccountID       string      `boil:"account_id" json:"account_id" toml:"account_id" yaml:"account_id"`
-	CollectionUID   null.String `boil:"collection_uid" json:"collection_uid,omitempty" toml:"collection_uid" yaml:"collection_uid,omitempty"`
-	ContentUnitType null.Int64  `boil:"content_unit_type" json:"content_unit_type,omitempty" toml:"content_unit_type" yaml:"content_unit_type,omitempty"`
-	UpdatedAt       time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID            int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	AccountID     string      `boil:"account_id" json:"account_id" toml:"account_id" yaml:"account_id"`
+	CollectionUID null.String `boil:"collection_uid" json:"collection_uid,omitempty" toml:"collection_uid" yaml:"collection_uid,omitempty"`
+	ContentType   null.Int64  `boil:"content_type" json:"content_type,omitempty" toml:"content_type" yaml:"content_type,omitempty"`
+	UpdatedAt     time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
 	R *subscriptionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L subscriptionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var SubscriptionColumns = struct {
-	ID              string
-	AccountID       string
-	CollectionUID   string
-	ContentUnitType string
-	UpdatedAt       string
+	ID            string
+	AccountID     string
+	CollectionUID string
+	ContentType   string
+	UpdatedAt     string
 }{
-	ID:              "id",
-	AccountID:       "account_id",
-	CollectionUID:   "collection_uid",
-	ContentUnitType: "content_unit_type",
-	UpdatedAt:       "updated_at",
+	ID:            "id",
+	AccountID:     "account_id",
+	CollectionUID: "collection_uid",
+	ContentType:   "content_type",
+	UpdatedAt:     "updated_at",
 }
 
 var SubscriptionTableColumns = struct {
-	ID              string
-	AccountID       string
-	CollectionUID   string
-	ContentUnitType string
-	UpdatedAt       string
+	ID            string
+	AccountID     string
+	CollectionUID string
+	ContentType   string
+	UpdatedAt     string
 }{
-	ID:              "subscriptions.id",
-	AccountID:       "subscriptions.account_id",
-	CollectionUID:   "subscriptions.collection_uid",
-	ContentUnitType: "subscriptions.content_unit_type",
-	UpdatedAt:       "subscriptions.updated_at",
+	ID:            "subscriptions.id",
+	AccountID:     "subscriptions.account_id",
+	CollectionUID: "subscriptions.collection_uid",
+	ContentType:   "subscriptions.content_type",
+	UpdatedAt:     "subscriptions.updated_at",
 }
 
 // Generated where
@@ -87,17 +87,17 @@ func (w whereHelpernull_Int64) GTE(x null.Int64) qm.QueryMod {
 }
 
 var SubscriptionWhere = struct {
-	ID              whereHelperint64
-	AccountID       whereHelperstring
-	CollectionUID   whereHelpernull_String
-	ContentUnitType whereHelpernull_Int64
-	UpdatedAt       whereHelpertime_Time
+	ID            whereHelperint64
+	AccountID     whereHelperstring
+	CollectionUID whereHelpernull_String
+	ContentType   whereHelpernull_Int64
+	UpdatedAt     whereHelpertime_Time
 }{
-	ID:              whereHelperint64{field: "\"subscriptions\".\"id\""},
-	AccountID:       whereHelperstring{field: "\"subscriptions\".\"account_id\""},
-	CollectionUID:   whereHelpernull_String{field: "\"subscriptions\".\"collection_uid\""},
-	ContentUnitType: whereHelpernull_Int64{field: "\"subscriptions\".\"content_unit_type\""},
-	UpdatedAt:       whereHelpertime_Time{field: "\"subscriptions\".\"updated_at\""},
+	ID:            whereHelperint64{field: "\"subscriptions\".\"id\""},
+	AccountID:     whereHelperstring{field: "\"subscriptions\".\"account_id\""},
+	CollectionUID: whereHelpernull_String{field: "\"subscriptions\".\"collection_uid\""},
+	ContentType:   whereHelpernull_Int64{field: "\"subscriptions\".\"content_type\""},
+	UpdatedAt:     whereHelpertime_Time{field: "\"subscriptions\".\"updated_at\""},
 }
 
 // SubscriptionRels is where relationship names are stored.
@@ -117,8 +117,8 @@ func (*subscriptionR) NewStruct() *subscriptionR {
 type subscriptionL struct{}
 
 var (
-	subscriptionAllColumns            = []string{"id", "account_id", "collection_uid", "content_unit_type", "updated_at"}
-	subscriptionColumnsWithoutDefault = []string{"account_id", "collection_uid", "content_unit_type"}
+	subscriptionAllColumns            = []string{"id", "account_id", "collection_uid", "content_type", "updated_at"}
+	subscriptionColumnsWithoutDefault = []string{"account_id", "collection_uid", "content_type"}
 	subscriptionColumnsWithDefault    = []string{"id", "updated_at"}
 	subscriptionPrimaryKeyColumns     = []string{"id"}
 )

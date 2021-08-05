@@ -55,23 +55,23 @@ CREATE TABLE likes
 DROP TABLE IF EXISTS subscriptions;
 CREATE TABLE subscriptions
 (
-    id                BIGSERIAL PRIMARY KEY,
-    account_id        VARCHAR(64)                                NOT NULL,
-    collection_uid    VARCHAR(8)                                 NULL,
-    content_unit_type BIGINT                                     NULL,
-    updated_at        TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
+    id             BIGSERIAL PRIMARY KEY,
+    account_id     VARCHAR(64)                                NOT NULL,
+    collection_uid VARCHAR(8)                                 NULL,
+    content_type   BIGINT                                     NULL,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
 );
 
 
 DROP TABLE IF EXISTS history;
 CREATE TABLE history
 (
-    id           BIGSERIAL PRIMARY KEY,
-    account_id   VARCHAR(36)                                NOT NULL,
-    chronicle_id VARCHAR(64)                                NOT NULL,
-    unit_uid     VARCHAR(8)                                 NULL,
-    data         JSONB,
-    created_at   TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
+    id               BIGSERIAL PRIMARY KEY,
+    account_id       VARCHAR(36)                                NOT NULL,
+    chronicle_id     VARCHAR(64)                                NOT NULL,
+    content_unit_uid VARCHAR(8)                                 NULL,
+    data             JSONB,
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
 );
 
 
@@ -104,8 +104,8 @@ CREATE
     ON history USING BTREE (created_at);
 
 CREATE
-    INDEX IF NOT EXISTS history_account_id_unit_uid_created_at_idx
-    ON history USING BTREE (account_id, unit_uid, created_at);
+    INDEX IF NOT EXISTS history_account_id_content_unit_uid_created_at_idx
+    ON history USING BTREE (account_id, content_unit_uid, created_at);
 
 
 COMMIT;
