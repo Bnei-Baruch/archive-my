@@ -13,7 +13,7 @@ INDEX IF EXISTS history_account_id_idx;
 DROP
 INDEX IF EXISTS history_created_at_idx;
 DROP
-INDEX IF EXISTS history_account_id_unit_uid_created_at_idx;
+INDEX IF EXISTS history_account_id_content_unit_uid_created_at_idx;
 
 
 DROP TABLE IF EXISTS playlist;

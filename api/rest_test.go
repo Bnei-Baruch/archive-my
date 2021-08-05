@@ -57,7 +57,7 @@ func (s *RestTestSuite) TearDownTest() {
 
 /* TESTS */
 func (s *RestTestSuite) TestLikes() {
-	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 1, StopIndex: 10})
+	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
 
 	s.app.handleGetLikes(c)
@@ -81,7 +81,7 @@ func (s *RestTestSuite) TestLikes() {
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(9, resp.Total, "total")
 
-	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 6, StopIndex: 10})
+	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 2, PageSize: 4})
 	s.Require().Nil(err)
 	s.app.handleGetLikes(cPart)
 	s.Nil(json.Unmarshal(wPart.Body.Bytes(), &resp))
@@ -119,7 +119,7 @@ func (s *RestTestSuite) TestLikes() {
 }
 
 func (s *RestTestSuite) TestPlaylist() {
-	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 1, StopIndex: 10})
+	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
 
 	s.app.handleGetPlaylists(c)
@@ -142,7 +142,7 @@ func (s *RestTestSuite) TestPlaylist() {
 	s.app.handleGetPlaylists(c)
 	s.EqualValues(9, resp.Total, "total")
 
-	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 6, StopIndex: 10})
+	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 2, PageSize: 4})
 	s.Nil(err)
 	s.app.handleGetPlaylists(cPart)
 	s.Nil(json.Unmarshal(wPart.Body.Bytes(), &resp))
@@ -179,7 +179,7 @@ func (s *RestTestSuite) TestPlaylist() {
 }
 
 func (s *RestTestSuite) TestHistory() {
-	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 1, StopIndex: 10})
+	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
 
 	s.app.handleGetHistory(c)
@@ -203,7 +203,7 @@ func (s *RestTestSuite) TestHistory() {
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(9, resp.Total, "total")
 
-	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, StartIndex: 6, StopIndex: 10})
+	cPart, wPart, err := testutil.PrepareContext(ListRequest{PageNumber: 2, PageSize: 4})
 	s.Require().Nil(err)
 	s.app.handleGetHistory(cPart)
 	s.Nil(json.Unmarshal(wPart.Body.Bytes(), &resp))
@@ -348,10 +348,10 @@ func (s *RestTestSuite) createDummyHistory(n int64) []*models.History {
 	items := make([]*models.History, n)
 	for i, l := range items {
 		items[i] = &models.History{
-			ID:          int64(i),
-			AccountID:   s.kcId,
-			ChronicleID: utils.GenerateUID(36),
-			UnitUID:     null.String{String: utils.GenerateUID(8), Valid: true},
+			ID:             int64(i),
+			AccountID:      s.kcId,
+			ChronicleID:    utils.GenerateUID(36),
+			ContentUnitUID: null.String{String: utils.GenerateUID(8), Valid: true},
 		}
 		s.Nil(l.Insert(s.tx, boil.Infer()))
 	}
@@ -361,7 +361,7 @@ func (s *RestTestSuite) createDummyHistory(n int64) []*models.History {
 func (s *RestTestSuite) assertEqualHistory(l *models.History, x *models.History, idx int) {
 	s.Equal(l.ID, x.ID, "like.ID [%d]", idx)
 	s.Equal(l.AccountID, x.AccountID, "like.AccountID [%d]", idx)
-	s.Equal(l.UnitUID, x.UnitUID, "like.UnitUID [%d]", idx)
+	s.Equal(l.ContentUnitUID, x.ContentUnitUID, "like.UnitUID [%d]", idx)
 }
 
 /*

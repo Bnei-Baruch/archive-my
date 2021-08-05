@@ -77,7 +77,7 @@ func (c *Chronicles) Init(dbstr, mdbstr string) {
 	c.DBstr = dbstr
 
 	if mdbstr == "" {
-		dbstr = viper.GetString("app.mdb")
+		mdbstr = viper.GetString("app.mdb")
 	}
 	c.MDBstr = mdbstr
 }
@@ -144,7 +144,7 @@ func (c *Chronicles) refresh() error {
 
 func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
 	log.Infof("Scanning chronicles entries, last successfull [%s]", c.lastReadId)
-	b := bytes.NewBuffer([]byte(fmt.Sprintf(`{"id":"%s","limit":%d}`, c.lastReadId, SCAN_SIZE)))
+	b := bytes.NewBuffer([]byte(fmt.Sprintf(`{"id":"%s","limit":%d, "event_types": ["player-play", "player-stop"], "namespaces": ["archive"]}`, c.lastReadId, SCAN_SIZE)))
 	resp, err := http.Post(c.chroniclesUrl, "application/json", b)
 	if err != nil {
 		return nil, err
@@ -263,15 +263,15 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) er
 	eDay := sDay.Add(24 * time.Hour)
 	log.Infof("%v, %v", sDay, eDay)
 	h, errDB := models.Histories(
-		qm.Where("account_id = ? AND unit_uid = ? AND created_at > ? AND created_at < ?", ev.AccountId, unitUID, sDay, eDay),
+		qm.Where("account_id = ? AND content_unit_uid = ? AND created_at > ? AND created_at < ?", ev.AccountId, unitUID, sDay, eDay),
 	).One(tx)
 	if errDB == sql.ErrNoRows {
 		h = &models.History{
-			AccountID:   ev.AccountId[0:36],
-			ChronicleID: ev.ID,
-			UnitUID:     null.String{String: unitUID, Valid: true},
-			Data:        null.JSON{JSON: j, Valid: true},
-			CreatedAt:   ev.CreatedAt,
+			AccountID:      ev.AccountId[0:36],
+			ChronicleID:    ev.ID,
+			ContentUnitUID: null.String{String: unitUID, Valid: true},
+			Data:           null.JSON{JSON: j, Valid: true},
+			CreatedAt:      ev.CreatedAt,
 		}
 		return h.Insert(tx, boil.Infer())
 	} else if errDB != nil {
@@ -291,11 +291,8 @@ func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleE
 	if ev.ClientEventType != CR_EVENT_TYPE_PLAYER_PLAY {
 		return nil
 	}
-	subs, err := models.Subscriptions(
-		qm.Select("collection_id"),
-		qm.Where("account_id = ?", ev.AccountId),
-	).All(tx)
-	if err == sql.ErrNoRows {
+	subs, err := models.Subscriptions(qm.Where("account_id = ?", ev.AccountId)).All(tx)
+	if subs == nil {
 		return nil
 	} else if err != nil {
 		return err

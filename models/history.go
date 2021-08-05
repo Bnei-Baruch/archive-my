@@ -23,47 +23,47 @@ import (
 
 // History is an object representing the database table.
 type History struct {
-	ID          int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	AccountID   string      `boil:"account_id" json:"account_id" toml:"account_id" yaml:"account_id"`
-	ChronicleID string      `boil:"chronicle_id" json:"chronicle_id" toml:"chronicle_id" yaml:"chronicle_id"`
-	UnitUID     null.String `boil:"unit_uid" json:"unit_uid,omitempty" toml:"unit_uid" yaml:"unit_uid,omitempty"`
-	Data        null.JSON   `boil:"data" json:"data,omitempty" toml:"data" yaml:"data,omitempty"`
-	CreatedAt   time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID             int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	AccountID      string      `boil:"account_id" json:"account_id" toml:"account_id" yaml:"account_id"`
+	ChronicleID    string      `boil:"chronicle_id" json:"chronicle_id" toml:"chronicle_id" yaml:"chronicle_id"`
+	ContentUnitUID null.String `boil:"content_unit_uid" json:"content_unit_uid,omitempty" toml:"content_unit_uid" yaml:"content_unit_uid,omitempty"`
+	Data           null.JSON   `boil:"data" json:"data,omitempty" toml:"data" yaml:"data,omitempty"`
+	CreatedAt      time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *historyR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L historyL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var HistoryColumns = struct {
-	ID          string
-	AccountID   string
-	ChronicleID string
-	UnitUID     string
-	Data        string
-	CreatedAt   string
+	ID             string
+	AccountID      string
+	ChronicleID    string
+	ContentUnitUID string
+	Data           string
+	CreatedAt      string
 }{
-	ID:          "id",
-	AccountID:   "account_id",
-	ChronicleID: "chronicle_id",
-	UnitUID:     "unit_uid",
-	Data:        "data",
-	CreatedAt:   "created_at",
+	ID:             "id",
+	AccountID:      "account_id",
+	ChronicleID:    "chronicle_id",
+	ContentUnitUID: "content_unit_uid",
+	Data:           "data",
+	CreatedAt:      "created_at",
 }
 
 var HistoryTableColumns = struct {
-	ID          string
-	AccountID   string
-	ChronicleID string
-	UnitUID     string
-	Data        string
-	CreatedAt   string
+	ID             string
+	AccountID      string
+	ChronicleID    string
+	ContentUnitUID string
+	Data           string
+	CreatedAt      string
 }{
-	ID:          "history.id",
-	AccountID:   "history.account_id",
-	ChronicleID: "history.chronicle_id",
-	UnitUID:     "history.unit_uid",
-	Data:        "history.data",
-	CreatedAt:   "history.created_at",
+	ID:             "history.id",
+	AccountID:      "history.account_id",
+	ChronicleID:    "history.chronicle_id",
+	ContentUnitUID: "history.content_unit_uid",
+	Data:           "history.data",
+	CreatedAt:      "history.created_at",
 }
 
 // Generated where
@@ -182,19 +182,19 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 }
 
 var HistoryWhere = struct {
-	ID          whereHelperint64
-	AccountID   whereHelperstring
-	ChronicleID whereHelperstring
-	UnitUID     whereHelpernull_String
-	Data        whereHelpernull_JSON
-	CreatedAt   whereHelpertime_Time
+	ID             whereHelperint64
+	AccountID      whereHelperstring
+	ChronicleID    whereHelperstring
+	ContentUnitUID whereHelpernull_String
+	Data           whereHelpernull_JSON
+	CreatedAt      whereHelpertime_Time
 }{
-	ID:          whereHelperint64{field: "\"history\".\"id\""},
-	AccountID:   whereHelperstring{field: "\"history\".\"account_id\""},
-	ChronicleID: whereHelperstring{field: "\"history\".\"chronicle_id\""},
-	UnitUID:     whereHelpernull_String{field: "\"history\".\"unit_uid\""},
-	Data:        whereHelpernull_JSON{field: "\"history\".\"data\""},
-	CreatedAt:   whereHelpertime_Time{field: "\"history\".\"created_at\""},
+	ID:             whereHelperint64{field: "\"history\".\"id\""},
+	AccountID:      whereHelperstring{field: "\"history\".\"account_id\""},
+	ChronicleID:    whereHelperstring{field: "\"history\".\"chronicle_id\""},
+	ContentUnitUID: whereHelpernull_String{field: "\"history\".\"content_unit_uid\""},
+	Data:           whereHelpernull_JSON{field: "\"history\".\"data\""},
+	CreatedAt:      whereHelpertime_Time{field: "\"history\".\"created_at\""},
 }
 
 // HistoryRels is where relationship names are stored.
@@ -214,8 +214,8 @@ func (*historyR) NewStruct() *historyR {
 type historyL struct{}
 
 var (
-	historyAllColumns            = []string{"id", "account_id", "chronicle_id", "unit_uid", "data", "created_at"}
-	historyColumnsWithoutDefault = []string{"account_id", "chronicle_id", "unit_uid", "data"}
+	historyAllColumns            = []string{"id", "account_id", "chronicle_id", "content_unit_uid", "data", "created_at"}
+	historyColumnsWithoutDefault = []string{"account_id", "chronicle_id", "content_unit_uid", "data"}
 	historyColumnsWithDefault    = []string{"id", "created_at"}
 	historyPrimaryKeyColumns     = []string{"id"}
 )

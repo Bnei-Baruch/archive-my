@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"database/sql"
-	"net/http"
 
 	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
@@ -64,13 +63,17 @@ func (a *App) setupRoutes() error {
 	router.GET("/health_check", a.HealthCheckHandler)
 
 	// cors
-	opt := cors.Options{}
-	opt.AllowedHeaders = append(opt.AllowedHeaders, "Authorization", "X-Request-ID")
-	opt.AllowedMethods = append(opt.AllowedMethods, http.MethodDelete)
-	cors.Default()
+	opt := cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "HEAD", "OPTIONS", "DELETE"},
+		AllowedHeaders: []string{"Origin", "Authorization", "Accept", "Content-Type", "X-Requested-With", "X-Request-ID"},
+	}
 	router.Use(cors.New(opt))
+	//router.Use(cors.Default())
 
-	rest := router.Group("/rest", authutil.AuthenticationMiddleware(a.Verifier))
+	rest := router.Group("/rest")
+	rest.Use(authutil.AuthenticationMiddleware(a.Verifier))
+
 	rest.GET("/playlists", a.handleGetPlaylists)
 	rest.POST("/playlists", a.handleCreatePlaylist)
 	rest.PATCH("/playlists/:id", a.handleUpdatePlaylist)
