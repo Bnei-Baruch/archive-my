@@ -23,81 +23,65 @@ import (
 
 // Subscription is an object representing the database table.
 type Subscription struct {
-	ID            int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	AccountID     string      `boil:"account_id" json:"account_id" toml:"account_id" yaml:"account_id"`
-	CollectionUID null.String `boil:"collection_uid" json:"collection_uid,omitempty" toml:"collection_uid" yaml:"collection_uid,omitempty"`
-	ContentType   null.Int64  `boil:"content_type" json:"content_type,omitempty" toml:"content_type" yaml:"content_type,omitempty"`
-	UpdatedAt     time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID             int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	AccountID      string      `boil:"account_id" json:"account_id" toml:"account_id" yaml:"account_id"`
+	CollectionUID  null.String `boil:"collection_uid" json:"collection_uid,omitempty" toml:"collection_uid" yaml:"collection_uid,omitempty"`
+	ContentType    null.String `boil:"content_type" json:"content_type,omitempty" toml:"content_type" yaml:"content_type,omitempty"`
+	ContentUnitUID string      `boil:"content_unit_uid" json:"content_unit_uid" toml:"content_unit_uid" yaml:"content_unit_uid"`
+	UpdatedAt      time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
 	R *subscriptionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L subscriptionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var SubscriptionColumns = struct {
-	ID            string
-	AccountID     string
-	CollectionUID string
-	ContentType   string
-	UpdatedAt     string
+	ID             string
+	AccountID      string
+	CollectionUID  string
+	ContentType    string
+	ContentUnitUID string
+	UpdatedAt      string
 }{
-	ID:            "id",
-	AccountID:     "account_id",
-	CollectionUID: "collection_uid",
-	ContentType:   "content_type",
-	UpdatedAt:     "updated_at",
+	ID:             "id",
+	AccountID:      "account_id",
+	CollectionUID:  "collection_uid",
+	ContentType:    "content_type",
+	ContentUnitUID: "content_unit_uid",
+	UpdatedAt:      "updated_at",
 }
 
 var SubscriptionTableColumns = struct {
-	ID            string
-	AccountID     string
-	CollectionUID string
-	ContentType   string
-	UpdatedAt     string
+	ID             string
+	AccountID      string
+	CollectionUID  string
+	ContentType    string
+	ContentUnitUID string
+	UpdatedAt      string
 }{
-	ID:            "subscriptions.id",
-	AccountID:     "subscriptions.account_id",
-	CollectionUID: "subscriptions.collection_uid",
-	ContentType:   "subscriptions.content_type",
-	UpdatedAt:     "subscriptions.updated_at",
+	ID:             "subscriptions.id",
+	AccountID:      "subscriptions.account_id",
+	CollectionUID:  "subscriptions.collection_uid",
+	ContentType:    "subscriptions.content_type",
+	ContentUnitUID: "subscriptions.content_unit_uid",
+	UpdatedAt:      "subscriptions.updated_at",
 }
 
 // Generated where
 
-type whereHelpernull_Int64 struct{ field string }
-
-func (w whereHelpernull_Int64) EQ(x null.Int64) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_Int64) NEQ(x null.Int64) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Int64) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Int64) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-func (w whereHelpernull_Int64) LT(x null.Int64) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Int64) LTE(x null.Int64) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Int64) GT(x null.Int64) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Int64) GTE(x null.Int64) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
 var SubscriptionWhere = struct {
-	ID            whereHelperint64
-	AccountID     whereHelperstring
-	CollectionUID whereHelpernull_String
-	ContentType   whereHelpernull_Int64
-	UpdatedAt     whereHelpertime_Time
+	ID             whereHelperint64
+	AccountID      whereHelperstring
+	CollectionUID  whereHelpernull_String
+	ContentType    whereHelpernull_String
+	ContentUnitUID whereHelperstring
+	UpdatedAt      whereHelpertime_Time
 }{
-	ID:            whereHelperint64{field: "\"subscriptions\".\"id\""},
-	AccountID:     whereHelperstring{field: "\"subscriptions\".\"account_id\""},
-	CollectionUID: whereHelpernull_String{field: "\"subscriptions\".\"collection_uid\""},
-	ContentType:   whereHelpernull_Int64{field: "\"subscriptions\".\"content_type\""},
-	UpdatedAt:     whereHelpertime_Time{field: "\"subscriptions\".\"updated_at\""},
+	ID:             whereHelperint64{field: "\"subscriptions\".\"id\""},
+	AccountID:      whereHelperstring{field: "\"subscriptions\".\"account_id\""},
+	CollectionUID:  whereHelpernull_String{field: "\"subscriptions\".\"collection_uid\""},
+	ContentType:    whereHelpernull_String{field: "\"subscriptions\".\"content_type\""},
+	ContentUnitUID: whereHelperstring{field: "\"subscriptions\".\"content_unit_uid\""},
+	UpdatedAt:      whereHelpertime_Time{field: "\"subscriptions\".\"updated_at\""},
 }
 
 // SubscriptionRels is where relationship names are stored.
@@ -117,8 +101,8 @@ func (*subscriptionR) NewStruct() *subscriptionR {
 type subscriptionL struct{}
 
 var (
-	subscriptionAllColumns            = []string{"id", "account_id", "collection_uid", "content_type", "updated_at"}
-	subscriptionColumnsWithoutDefault = []string{"account_id", "collection_uid", "content_type"}
+	subscriptionAllColumns            = []string{"id", "account_id", "collection_uid", "content_type", "content_unit_uid", "updated_at"}
+	subscriptionColumnsWithoutDefault = []string{"account_id", "collection_uid", "content_type", "content_unit_uid"}
 	subscriptionColumnsWithDefault    = []string{"id", "updated_at"}
 	subscriptionPrimaryKeyColumns     = []string{"id"}
 )

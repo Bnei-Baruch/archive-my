@@ -55,11 +55,12 @@ CREATE TABLE likes
 DROP TABLE IF EXISTS subscriptions;
 CREATE TABLE subscriptions
 (
-    id             BIGSERIAL PRIMARY KEY,
-    account_id     VARCHAR(64)                                NOT NULL,
-    collection_uid VARCHAR(8)                                 NULL,
-    content_type   BIGINT                                     NULL,
-    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
+    id               BIGSERIAL PRIMARY KEY,
+    account_id       VARCHAR(64)                                NOT NULL,
+    collection_uid   VARCHAR(8)                                 NULL,
+    content_type     VARCHAR(20)                                NULL,
+    content_unit_uid VARCHAR(8)                                 NOT NULL,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
 );
 
 

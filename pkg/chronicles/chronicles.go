@@ -42,6 +42,8 @@ type Chronicles struct {
 
 	DBstr  string
 	MDBstr string
+
+	httpClient *http.Client
 }
 
 type ScanResponse struct {
@@ -70,7 +72,7 @@ type ChronicleEventData struct {
 	CurrentTime null.Int64 `json:"current_time,omitempty"`
 }
 
-func (c *Chronicles) Init(dbstr, mdbstr string) {
+func (c *Chronicles) Init(dbstr, mdbstr, chroniclesUrl string, client *http.Client) {
 	if dbstr == "" {
 		dbstr = viper.GetString("app.mydb")
 	}
@@ -80,6 +82,16 @@ func (c *Chronicles) Init(dbstr, mdbstr string) {
 		mdbstr = viper.GetString("app.mdb")
 	}
 	c.MDBstr = mdbstr
+
+	if chroniclesUrl == "" {
+		chroniclesUrl = viper.GetString("app.scan_url")
+	}
+	c.chroniclesUrl = chroniclesUrl
+
+	if client == nil {
+		client = &http.Client{}
+	}
+	c.httpClient = client
 }
 
 func (c *Chronicles) Run() {
@@ -91,11 +103,12 @@ func (c *Chronicles) Run() {
 	c.lastReadId, err = c.lastChroniclesId()
 	utils.Must(err)
 
-	c.chroniclesUrl = viper.GetString("app.scan_url")
 	go func() {
 		refresh := func() {
 			if err := c.refresh(); err != nil {
 				log.Errorf("Error Refresh: %+v", err)
+				c.interval = c.interval * 2
+				_ = c.refresh()
 			}
 		}
 		refresh()
@@ -104,6 +117,10 @@ func (c *Chronicles) Run() {
 			refresh()
 		}
 	}()
+}
+
+func (c *Chronicles) Stop() {
+	c.ticker.Stop()
 }
 
 func (c *Chronicles) lastChroniclesId() (string, error) {
@@ -126,9 +143,6 @@ func (c *Chronicles) lastChroniclesId() (string, error) {
 }
 
 func (c *Chronicles) refresh() error {
-	if c.nextRefresh.After(time.Now()) {
-		return nil
-	}
 	entries, err := c.scanEvents()
 	if err != nil {
 		return err
@@ -138,14 +152,14 @@ func (c *Chronicles) refresh() error {
 	} else {
 		c.interval = minDuration(c.interval*2, MAX_INTERVAL)
 	}
-	c.nextRefresh = time.Now().Add(c.interval)
+	c.ticker.Reset(c.interval)
 	return nil
 }
 
 func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
 	log.Infof("Scanning chronicles entries, last successfull [%s]", c.lastReadId)
 	b := bytes.NewBuffer([]byte(fmt.Sprintf(`{"id":"%s","limit":%d, "event_types": ["player-play", "player-stop"], "namespaces": ["archive"]}`, c.lastReadId, SCAN_SIZE)))
-	resp, err := http.Post(c.chroniclesUrl, "application/json", b)
+	resp, err := c.httpClient.Post(c.chroniclesUrl, "application/json", b)
 	if err != nil {
 		return nil, err
 	}

@@ -60,16 +60,18 @@ func (a *App) setupRoutes() error {
 	// Setup gin
 	gin.SetMode(viper.GetString("server.mode"))
 	router := gin.Default()
-	router.GET("/health_check", a.HealthCheckHandler)
 
 	// cors
 	opt := cors.Options{
 		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "HEAD", "OPTIONS", "DELETE"},
+		AllowedMethods: []string{"GET", "POST", "PATCH", "HEAD", "OPTIONS", "DELETE"},
 		AllowedHeaders: []string{"Origin", "Authorization", "Accept", "Content-Type", "X-Requested-With", "X-Request-ID"},
 	}
 	router.Use(cors.New(opt))
 	//router.Use(cors.Default())
+
+	router.GET("/health_check", a.HealthCheckHandler)
+	router.GET("/like_count", a.handleLikeCount)
 
 	rest := router.Group("/rest")
 	rest.Use(authutil.AuthenticationMiddleware(a.Verifier))
@@ -77,7 +79,8 @@ func (a *App) setupRoutes() error {
 	rest.GET("/playlists", a.handleGetPlaylists)
 	rest.POST("/playlists", a.handleCreatePlaylist)
 	rest.PATCH("/playlists/:id", a.handleUpdatePlaylist)
-	rest.DELETE("/playlists/:id", a.handleDeletePlaylist)
+	rest.DELETE("/playlists", a.handleDeletePlaylist)
+	rest.GET("/playlists/:id/units", a.handleGetPlaylistItems)
 	rest.POST("/playlists/:id/units", a.handleAddToPlaylist)
 	rest.DELETE("/playlists/:id/units", a.handleDeleteFromPlaylist)
 	rest.GET("/likes", a.handleGetLikes)

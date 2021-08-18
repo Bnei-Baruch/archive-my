@@ -3,8 +3,13 @@ package api
 import "archive-my/models"
 
 type playlistsResponse struct {
-	Playlist []*models.Playlist `json:"items"`
+	Playlist []*playlistResponse `json:"items"`
 	ListResponse
+}
+
+type playlistResponse struct {
+	*models.Playlist
+	PlaylistItems []*models.PlaylistItem `json:"items"`
 }
 
 type likesResponse struct {
@@ -22,8 +27,9 @@ type historyResponse struct {
 }
 
 type subscribeRequest struct {
-	Collections  []string `json:"collections" form:"collections" binding:"omitempty"`
-	ContentTypes []int64  `json:"types" form:"types" binding:"omitempty"`
+	Collections    []string `json:"collections" form:"collections" binding:"omitempty"`
+	ContentTypes   []string `json:"types" form:"types" binding:"omitempty"`
+	ContentUnitUID string   `json:"content_unit_uid"  binding:"omitempty"`
 }
 
 type ListRequest struct {
@@ -34,7 +40,7 @@ type ListRequest struct {
 }
 
 type UIDsRequest struct {
-	UIDs []string `json:"uids" form:"content_unit_uids" binding:"omitempty"`
+	UIDs []string `json:"uids" form:"uids" binding:"omitempty"`
 }
 
 type IDsRequest struct {
