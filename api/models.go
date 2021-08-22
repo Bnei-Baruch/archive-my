@@ -1,14 +1,20 @@
 package api
 
-import "archive-my/models"
+import (
+	"archive-my/models"
+)
 
+//Responses
 type playlistsResponse struct {
-	Playlist []*playlistResponse `json:"items"`
+	Playlists []*playlistResponse `json:"items"`
 	ListResponse
 }
-
 type playlistResponse struct {
 	*models.Playlist
+	ItemsCount    int64                  `json:"count"`
+	PlaylistItems []*models.PlaylistItem `json:"playlist_items"`
+}
+type playlistItemResponse struct {
 	PlaylistItems []*models.PlaylistItem `json:"items"`
 }
 
@@ -26,10 +32,16 @@ type historyResponse struct {
 	ListResponse
 }
 
+//Requests
 type subscribeRequest struct {
 	Collections    []string `json:"collections" form:"collections" binding:"omitempty"`
 	ContentTypes   []string `json:"types" form:"types" binding:"omitempty"`
 	ContentUnitUID string   `json:"content_unit_uid"  binding:"omitempty"`
+}
+
+type playListItemRequest struct {
+	PlayListIds []string `json:"playlists" binding:"omitempty"`
+	UIDsRequest
 }
 
 type ListRequest struct {

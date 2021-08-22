@@ -27,7 +27,6 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 	kcId := c.MustGet("KC_ID").(string)
 
 	mods := []qm.QueryMod{
-		qm.Select("distinct on (id) *"),
 		qm.Load("PlaylistItems"),
 		qm.Where("account_id = ?", kcId),
 	}
@@ -39,7 +38,7 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 	if err := appendMyListMods(&mods, req); err != nil {
 		NewBadRequestError(err).Abort(c)
 	}
-	pl, err := models.Playlists(mods...).All(a.DB)
+	pls, err := models.Playlists(mods...).All(a.DB)
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
@@ -48,15 +47,16 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
-
-	resp := playlistsResponse{ListResponse: ListResponse{Total: total}, Playlist: make([]*playlistResponse, len(pl))}
-	for i, p := range pl {
-		resp.Playlist[i] = &playlistResponse{
-			Playlist:      p,
-			PlaylistItems: p.R.PlaylistItems,
+	plResp := make([]*playlistResponse, len(pls))
+	for i, p := range pls {
+		plResp[i] = &playlistResponse{Playlist: p}
+		if p.R.PlaylistItems != nil {
+			plResp[i].ItemsCount = int64(len(p.R.PlaylistItems))
+			plResp[i].PlaylistItems = []*models.PlaylistItem{p.R.PlaylistItems[0]}
 		}
 	}
 
+	resp := playlistsResponse{ListResponse: ListResponse{Total: total}, Playlists: plResp}
 	concludeRequest(c, resp, nil)
 }
 
@@ -79,7 +79,6 @@ func (a *App) handleCreatePlaylist(c *gin.Context) {
 }
 
 func (a *App) handleUpdatePlaylist(c *gin.Context) {
-
 	id, e := strconv.ParseInt(c.Param("id"), 10, 0)
 	if e != nil {
 		NewBadRequestError(e).Abort(c)
@@ -128,8 +127,7 @@ func (a *App) handleUpdatePlaylist(c *gin.Context) {
 		NewInternalError(err).Abort(c)
 	}
 
-	resp := playlistResponse{Playlist: p, PlaylistItems: p.R.PlaylistItems}
-	concludeRequest(c, resp, nil)
+	concludeRequest(c, p, nil)
 }
 
 func (a *App) handleDeletePlaylist(c *gin.Context) {
@@ -173,7 +171,7 @@ func (a *App) handleDeletePlaylist(c *gin.Context) {
 	concludeRequest(c, resp, NewInternalError(err))
 }
 
-func (a *App) handleGetPlaylistItems(c *gin.Context) {
+func (a *App) handleGetPlaylist(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
 		NewBadRequestError(err).Abort(c)
@@ -181,14 +179,35 @@ func (a *App) handleGetPlaylistItems(c *gin.Context) {
 
 	kcId := c.MustGet("KC_ID").(string)
 
-	mods := []qm.QueryMod{
-		qm.InnerJoin("playlist pl ON  pl.id = \"playlist_item\".playlist_id"),
-		qm.Where("pl.account_id = ? AND pl.id = ?", kcId, id),
+	pl, err := models.Playlists(
+		qm.Where("account_id = ? AND id = ?", kcId, id),
+		qm.Load("PlaylistItems"),
+	).One(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	concludeRequest(c, playlistResponse{Playlist: pl, PlaylistItems: pl.R.PlaylistItems}, nil)
+}
+
+func (a *App) handleGetPlaylistItems(c *gin.Context) {
+	kcId := c.MustGet("KC_ID").(string)
+
+	var req playListItemRequest
+	if err := c.Bind(&req); err != nil {
+		NewBadRequestError(err).Abort(c)
 	}
 
-	var req ListRequest
-	if c.Bind(&req) != nil {
-		NewBadRequestError(nil).Abort(c)
+	mods := []qm.QueryMod{
+		qm.InnerJoin("playlist pl ON pl.id = playlist_id"),
+		qm.Where("pl.account_id = ?", kcId),
+	}
+
+	if req.PlayListIds != nil {
+		mods = append(mods, qm.WhereIn("pl.id IN ?", req.PlayListIds))
+	}
+
+	if len(req.UIDs) > 0 {
+		mods = append(mods, qm.WhereIn("content_unit_uid IN ?", utils.ConvertArgsString(req.UIDs)...))
 	}
 
 	plis, err := models.PlaylistItems(mods...).All(a.DB)
@@ -196,15 +215,7 @@ func (a *App) handleGetPlaylistItems(c *gin.Context) {
 		NewInternalError(err).Abort(c)
 	}
 
-	resp := playlistResponse{
-		Playlist:      nil,
-		PlaylistItems: make([]*models.PlaylistItem, len(plis)),
-	}
-	for i, pli := range plis {
-		resp.PlaylistItems[i] = pli
-	}
-
-	concludeRequest(c, resp, nil)
+	concludeRequest(c, playlistItemResponse{PlaylistItems: plis}, nil)
 }
 
 func (a *App) handleAddToPlaylist(c *gin.Context) {
