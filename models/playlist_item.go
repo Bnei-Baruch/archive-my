@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -25,7 +24,7 @@ import (
 type PlaylistItem struct {
 	ID             int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
 	PlaylistID     int64     `boil:"playlist_id" json:"playlist_id" toml:"playlist_id" yaml:"playlist_id"`
-	Position       null.Int  `boil:"position" json:"position,omitempty" toml:"position" yaml:"position,omitempty"`
+	Position       int       `boil:"position" json:"position" toml:"position" yaml:"position"`
 	ContentUnitUID string    `boil:"content_unit_uid" json:"content_unit_uid" toml:"content_unit_uid" yaml:"content_unit_uid"`
 	AddedAt        time.Time `boil:"added_at" json:"added_at" toml:"added_at" yaml:"added_at"`
 
@@ -63,39 +62,39 @@ var PlaylistItemTableColumns = struct {
 
 // Generated where
 
-type whereHelpernull_Int struct{ field string }
+type whereHelperint struct{ field string }
 
-func (w whereHelpernull_Int) EQ(x null.Int) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
+func (w whereHelperint) EQ(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperint) NEQ(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperint) LT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperint) LTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperint) GT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperint) GTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperint) IN(slice []int) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-func (w whereHelpernull_Int) NEQ(x null.Int) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Int) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Int) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-func (w whereHelpernull_Int) LT(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Int) LTE(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Int) GT(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Int) GTE(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
+func (w whereHelperint) NIN(slice []int) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
 var PlaylistItemWhere = struct {
 	ID             whereHelperint64
 	PlaylistID     whereHelperint64
-	Position       whereHelpernull_Int
+	Position       whereHelperint
 	ContentUnitUID whereHelperstring
 	AddedAt        whereHelpertime_Time
 }{
 	ID:             whereHelperint64{field: "\"playlist_item\".\"id\""},
 	PlaylistID:     whereHelperint64{field: "\"playlist_item\".\"playlist_id\""},
-	Position:       whereHelpernull_Int{field: "\"playlist_item\".\"position\""},
+	Position:       whereHelperint{field: "\"playlist_item\".\"position\""},
 	ContentUnitUID: whereHelperstring{field: "\"playlist_item\".\"content_unit_uid\""},
 	AddedAt:        whereHelpertime_Time{field: "\"playlist_item\".\"added_at\""},
 }
@@ -122,8 +121,8 @@ type playlistItemL struct{}
 
 var (
 	playlistItemAllColumns            = []string{"id", "playlist_id", "position", "content_unit_uid", "added_at"}
-	playlistItemColumnsWithoutDefault = []string{"playlist_id", "position", "content_unit_uid"}
-	playlistItemColumnsWithDefault    = []string{"id", "added_at"}
+	playlistItemColumnsWithoutDefault = []string{"playlist_id", "content_unit_uid"}
+	playlistItemColumnsWithDefault    = []string{"id", "position", "added_at"}
 	playlistItemPrimaryKeyColumns     = []string{"id"}
 )
 

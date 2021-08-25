@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/friendsofgo/errors"
@@ -186,6 +187,11 @@ func (a *App) handleGetPlaylist(c *gin.Context) {
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
+
+	sort.SliceStable(pl.R.PlaylistItems, func(i int, j int) bool {
+		return pl.R.PlaylistItems[i].Position > pl.R.PlaylistItems[j].Position
+	})
+
 	concludeRequest(c, playlistResponse{Playlist: pl, PlaylistItems: pl.R.PlaylistItems}, nil)
 }
 
@@ -200,6 +206,7 @@ func (a *App) handleGetPlaylistItems(c *gin.Context) {
 	mods := []qm.QueryMod{
 		qm.InnerJoin("playlist pl ON pl.id = playlist_id"),
 		qm.Where("pl.account_id = ?", kcId),
+		qm.OrderBy("position DESC"),
 	}
 
 	if req.PlayListIds != nil {
@@ -263,21 +270,58 @@ func (a *App) handleAddToPlaylist(c *gin.Context) {
 	concludeRequest(c, pl.R.PlaylistItems, NewInternalError(err))
 }
 
-func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
-	var req UIDsRequest
-	if c.Bind(&req) != nil {
-		NewBadRequestError(nil).Abort(c)
-	}
+func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
 		NewBadRequestError(err).Abort(c)
 	}
+
 	kcId := c.MustGet("KC_ID").(string)
-	plis, err := models.PlaylistItems(
+
+	pi, err := models.PlaylistItems(
+		qm.InnerJoin("playlist pl ON pl.id = playlist_id"),
+		qm.Where("\"playlist_item\".id = ? AND pl.account_id = ?", id, kcId),
+	).One(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+
+	var req models.PlaylistItem
+	if err := c.Bind(&req); err != nil {
+		NewBadRequestError(err).Abort(c)
+	}
+	if pi.Position != req.Position {
+		pi.Position = req.Position
+		_, err = pi.Update(a.DB, boil.Whitelist("position"))
+		if err != nil {
+			NewInternalError(err).Abort(c)
+		}
+		err = pi.Reload(a.DB)
+	}
+	concludeRequest(c, pi, NewInternalError(err))
+}
+
+func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
+	kcId := c.MustGet("KC_ID").(string)
+
+	mods := []qm.QueryMod{
 		qm.InnerJoin("playlist pl ON  pl.id = \"playlist_item\".playlist_id"),
-		qm.Where("pl.account_id = ? AND pl.id = ?", kcId, id),
-		qm.WhereIn("\"playlist_item\".content_unit_uid IN ?", utils.ConvertArgsString(req.UIDs)...),
-	).All(a.DB)
+		qm.Where("pl.account_id = ?", kcId),
+	}
+
+	var req DeletePlaylistItemRequest
+	if err := c.Bind(&req); err != nil {
+		NewBadRequestError(err).Abort(c)
+	}
+	if len(req.UIDs) > 0 && req.PlaylistId > 0 {
+		mods = append(mods, qm.WhereIn("\"playlist_item\".content_unit_uid IN ?", utils.ConvertArgsString(req.UIDs)...), qm.Where("pl.id = ?", req.PlaylistId))
+	}
+
+	if len(req.IDs) > 0 {
+		mods = append(mods, qm.WhereIn("\"playlist_item\".id IN ?", utils.ConvertArgsInt64(req.IDs)...))
+	}
+
+	plis, err := models.PlaylistItems(mods...).All(a.DB)
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
@@ -300,7 +344,9 @@ func (a *App) handleGetLikes(c *gin.Context) {
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
-
+	if list.OrderBy == "" {
+		list.OrderBy = "created_at DESC"
+	}
 	if err := appendMyListMods(&mods, list); err != nil {
 		NewInternalError(err).Abort(c)
 	}

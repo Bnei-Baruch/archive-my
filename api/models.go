@@ -51,6 +51,12 @@ type ListRequest struct {
 	GroupBy    string `json:"-"`
 }
 
+type DeletePlaylistItemRequest struct {
+	UIDsRequest
+	IDsRequest
+	PlaylistId int64 `json:"playlist_id" form:"playlist_id" binding:"omitempty"`
+}
+
 type UIDsRequest struct {
 	UIDs []string `json:"uids" form:"uids" binding:"omitempty"`
 }

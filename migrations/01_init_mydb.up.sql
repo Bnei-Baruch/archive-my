@@ -36,7 +36,7 @@ CREATE TABLE playlist_item
 (
     id               BIGSERIAL PRIMARY KEY,
     playlist_id      BIGINT REFERENCES playlist                 NOT NULL,
-    position         int,
+    position         SERIAL,
     content_unit_uid VARCHAR(8)                                 NOT NULL,
     added_at         TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
 );

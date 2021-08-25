@@ -35,10 +35,9 @@ type Chronicles struct {
 	interval time.Duration
 	evByAcc  map[string]*ChronicleEvent
 
-	chroniclesUrl string
-	lastReadId    string
-	prevReadId    string
-	nextRefresh   time.Time
+	lastReadId  string
+	prevReadId  string
+	nextRefresh time.Time
 
 	DBstr  string
 	MDBstr string
@@ -72,7 +71,7 @@ type ChronicleEventData struct {
 	CurrentTime null.Int64 `json:"current_time,omitempty"`
 }
 
-func (c *Chronicles) Init(dbstr, mdbstr, chroniclesUrl string, client *http.Client) {
+func (c *Chronicles) Init(dbstr, mdbstr string, client *http.Client) {
 	if dbstr == "" {
 		dbstr = viper.GetString("app.mydb")
 	}
@@ -82,11 +81,6 @@ func (c *Chronicles) Init(dbstr, mdbstr, chroniclesUrl string, client *http.Clie
 		mdbstr = viper.GetString("app.mdb")
 	}
 	c.MDBstr = mdbstr
-
-	if chroniclesUrl == "" {
-		chroniclesUrl = viper.GetString("app.scan_url")
-	}
-	c.chroniclesUrl = chroniclesUrl
 
 	if client == nil {
 		client = &http.Client{}
@@ -159,7 +153,7 @@ func (c *Chronicles) refresh() error {
 func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
 	log.Infof("Scanning chronicles entries, last successfull [%s]", c.lastReadId)
 	b := bytes.NewBuffer([]byte(fmt.Sprintf(`{"id":"%s","limit":%d, "event_types": ["player-play", "player-stop"], "namespaces": ["archive"]}`, c.lastReadId, SCAN_SIZE)))
-	resp, err := c.httpClient.Post(c.chroniclesUrl, "application/json", b)
+	resp, err := c.httpClient.Post(viper.GetString("app.scan_url"), "application/json", b)
 	if err != nil {
 		return nil, err
 	}
