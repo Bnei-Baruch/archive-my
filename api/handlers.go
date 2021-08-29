@@ -76,7 +76,7 @@ func (a *App) handleCreatePlaylist(c *gin.Context) {
 	}
 
 	err := pl.Insert(a.DB, boil.Infer())
-	concludeRequest(c, pl, NewInternalError(err))
+	concludeRequest(c, []models.Playlist{pl}, NewInternalError(err))
 }
 
 func (a *App) handleUpdatePlaylist(c *gin.Context) {
@@ -344,9 +344,7 @@ func (a *App) handleGetLikes(c *gin.Context) {
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
-	if list.OrderBy == "" {
-		list.OrderBy = "created_at DESC"
-	}
+
 	if err := appendMyListMods(&mods, list); err != nil {
 		NewInternalError(err).Abort(c)
 	}
@@ -433,6 +431,10 @@ func (a *App) handleGetSubscriptions(c *gin.Context) {
 	var list ListRequest
 	if c.Bind(&list) != nil {
 		NewBadRequestError(nil).Abort(c)
+	}
+
+	if list.OrderBy == "" {
+		list.OrderBy = "updated_at DESC"
 	}
 	if err := appendMyListMods(&mods, list); err != nil {
 		NewInternalError(err).Abort(c)
@@ -587,6 +589,8 @@ func appendMyListMods(mods *[]qm.QueryMod, r ListRequest) error {
 
 	if r.OrderBy != "" {
 		*mods = append(*mods, qm.OrderBy(r.OrderBy))
+	} else {
+		*mods = append(*mods, qm.OrderBy("created_at DESC"))
 	}
 
 	var limit, offset int

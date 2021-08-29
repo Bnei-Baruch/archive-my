@@ -22,8 +22,8 @@ DROP TABLE IF EXISTS playlist;
 CREATE TABLE playlist
 (
     id          BIGSERIAL PRIMARY KEY,
-    account_id  VARCHAR(64)                                NOT NULL,
-    name        CHAR(32)                                   NULL,
+    account_id  VARCHAR                                    NOT NULL,
+    name        VARCHAR                                       NULL,
     parameters  JSONB,
     public      BOOLEAN,
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL,
@@ -46,7 +46,7 @@ DROP TABLE IF EXISTS likes;
 CREATE TABLE likes
 (
     id               BIGSERIAL PRIMARY KEY,
-    account_id       VARCHAR(64)                                NOT NULL,
+    account_id       VARCHAR                                    NOT NULL,
     content_unit_uid VARCHAR(8)                                 NOT NULL,
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
 );
@@ -56,9 +56,9 @@ DROP TABLE IF EXISTS subscriptions;
 CREATE TABLE subscriptions
 (
     id               BIGSERIAL PRIMARY KEY,
-    account_id       VARCHAR(64)                                NOT NULL,
+    account_id       VARCHAR                                    NOT NULL,
     collection_uid   VARCHAR(8)                                 NULL,
-    content_type     VARCHAR(20)                                NULL,
+    content_type     VARCHAR                                    NULL,
     content_unit_uid VARCHAR(8)                                 NOT NULL,
     updated_at       TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
 );
@@ -68,8 +68,8 @@ DROP TABLE IF EXISTS history;
 CREATE TABLE history
 (
     id               BIGSERIAL PRIMARY KEY,
-    account_id       VARCHAR(36)                                NOT NULL,
-    chronicle_id     VARCHAR(64)                                NOT NULL,
+    account_id       VARCHAR                                    NOT NULL,
+    chronicle_id     VARCHAR                                    NOT NULL,
     content_unit_uid VARCHAR(8)                                 NULL,
     data             JSONB,
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT now_utc() NOT NULL
