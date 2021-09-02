@@ -28,8 +28,10 @@ func PrepareContext(d interface{}) (*gin.Context, *httptest.ResponseRecorder, er
 	if err != nil {
 		return nil, nil, err
 	}
+	header := make(http.Header)
+	header.Add("Content-Type", "application/json")
 	c.Request = &http.Request{
-		Header: make(http.Header),
+		Header: header,
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(jsonbytes))
 	return c, w, nil
