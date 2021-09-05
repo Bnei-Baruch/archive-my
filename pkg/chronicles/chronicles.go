@@ -71,6 +71,11 @@ type ChronicleEventData struct {
 	CurrentTime null.Int64 `json:"current_time,omitempty"`
 }
 
+type subscriptionScanResult struct {
+	ID            int64  `boil:"id"`
+	CollectionUID string `boil:"uid"`
+}
+
 func (c *Chronicles) Init(dbstr, mdbstr string, client *http.Client) {
 	if dbstr == "" {
 		dbstr = viper.GetString("app.mydb")
@@ -93,7 +98,12 @@ func (c *Chronicles) Run() {
 	c.ticker = time.NewTicker(MIN_INTERVAL)
 	c.evByAcc = make(map[string]*ChronicleEvent, 0)
 
-	var err error
+	mdb, err := sql.Open("postgres", c.MDBstr)
+	utils.Must(err)
+	utils.Must(mdb.Ping())
+	defer mdb.Close()
+	utils.Must(utils.InitCT(mdb))
+
 	c.lastReadId, err = c.lastChroniclesId()
 	utils.Must(err)
 
@@ -306,29 +316,55 @@ func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleE
 		return err
 	}
 
-	coUIDs := make([]string, len(subs))
+	byCOs := make([]*models.Subscription, 0)
+	byTypes := make([]*models.Subscription, 0)
+	cuUIDs := make([]int64, len(subs))
 	for i, s := range subs {
-		coUIDs[i] = s.CollectionUID.String
+		cuUIDs[i] = s.ID
+		if s.CollectionUID.Valid {
+			byCOs = append(byCOs, s)
+		}
+		if s.ContentType.Valid {
+			byTypes = append(byTypes, s)
+		}
 	}
 
-	query := `SELECT co.uid FROM collections_content_units ccu
+	query := `SELECT co.uid as co_uid, cu.type_id as type_id  FROM collections_content_units ccu
 			INNER JOIN content_units cu ON ccu.content_unit_id = cu.id
 			INNER JOIN collections co ON ccu.collection_id = co.id
-			WHERE cu.uid = ? AND co.uid IN [%s]`
-	var subCOs []string
-	if err := queries.Raw(query, uid, coUIDs).QueryRow(mdb).Scan(&subCOs); err == sql.ErrNoRows || len(subCOs) == 0 {
+			WHERE cu.uid = ?`
+
+	rows, err := queries.Raw(query, uid).Query(mdb)
+	if err == sql.ErrNoRows {
 		return nil
 	} else if err != nil {
 		return err
 	}
-
+	defer rows.Close()
 	forUpdate := models.SubscriptionSlice{}
-	for _, s := range subs {
-		for _, sc := range subCOs {
-			if sc == s.CollectionUID.String {
+	for rows.Next() {
+		var (
+			type_id int
+			co_uid  string
+		)
+		err = rows.Scan(&type_id, &co_uid)
+		if err != nil {
+			return err
+		}
+		ct := utils.ContentTypesByID[type_id]
+		for _, s := range byTypes {
+			if s.ContentType.String == ct.Name {
 				forUpdate = append(forUpdate, s)
 			}
 		}
+		for _, s := range byCOs {
+			if s.CollectionUID.String == co_uid {
+				forUpdate = append(forUpdate, s)
+			}
+		}
+	}
+	if len(forUpdate) == 0 {
+		return nil
 	}
 
 	col := make(map[string]interface{}, 0)

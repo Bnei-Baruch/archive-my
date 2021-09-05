@@ -91,7 +91,7 @@ func (a *App) createPlaylist(c *gin.Context, tx boil.Executor) error {
 		Public:     p.Public,
 	}
 
-	err := pl.Insert(a.DB, boil.Infer())
+	err := pl.Insert(tx, boil.Infer())
 	concludeRequest(c, []models.Playlist{pl}, NewInternalError(err))
 	return err
 }
@@ -154,18 +154,23 @@ func (a *App) updatePlaylist(c *gin.Context, tx boil.Executor) (*models.Playlist
 }
 
 func (a *App) handleDeletePlaylist(c *gin.Context) {
-	var req IDsRequest
-	if c.Bind(&req) != nil {
-		NewBadRequestError(nil).Abort(c)
-	}
-
-	kcId := c.MustGet("KC_ID").(string)
-
-	var errTx error
-	tx, err := boil.Begin()
+	tx, err := openTransaction(a.DB)
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
+	httpErr := a.deletePlaylist(c, tx)
+	closeTransaction(tx, httpErr)
+
+	concludeRequest(c, nil, httpErr)
+}
+
+func (a *App) deletePlaylist(c *gin.Context, tx boil.Executor) *HttpError {
+	var req IDsRequest
+	if c.Bind(&req) != nil {
+		return NewBadRequestError(nil)
+	}
+
+	kcId := c.MustGet("KC_ID").(string)
 
 	ps, err := models.Playlists(
 		qm.Load("PlaylistItems"),
@@ -173,28 +178,31 @@ func (a *App) handleDeletePlaylist(c *gin.Context) {
 		qm.WhereIn("id in ?", utils.ConvertArgsInt64(req.IDs)...),
 	).All(tx)
 	if err != nil {
-		NewInternalError(err).Abort(c)
-		tx.Rollback()
+		return NewInternalError(err)
 	}
 	for _, p := range ps {
-		_, errTx = p.R.PlaylistItems.DeleteAll(tx)
-		if errTx != nil {
-			NewInternalError(err).Abort(c)
-			tx.Rollback()
+		_, err = p.R.PlaylistItems.DeleteAll(tx)
+		if err != nil {
+			return NewInternalError(err)
 		}
 	}
-
-	resp, errTx := ps.DeleteAll(tx)
+	_, errTx := ps.DeleteAll(tx)
 	if errTx != nil {
-		NewInternalError(err).Abort(c)
-		tx.Rollback()
+		return NewInternalError(err)
 	}
-
-	err = tx.Commit()
-	concludeRequest(c, resp, NewInternalError(err))
+	return nil
 }
 
 func (a *App) handleGetPlaylist(c *gin.Context) {
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	defer closeTransaction(tx, nil)
+	a.getPlaylist(c, tx)
+}
+
+func (a *App) getPlaylist(c *gin.Context, tx boil.Executor) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
 		NewBadRequestError(err).Abort(c)
@@ -205,7 +213,7 @@ func (a *App) handleGetPlaylist(c *gin.Context) {
 	pl, err := models.Playlists(
 		qm.Where("account_id = ? AND id = ?", kcId, id),
 		qm.Load("PlaylistItems"),
-	).One(a.DB)
+	).One(tx)
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
@@ -218,51 +226,65 @@ func (a *App) handleGetPlaylist(c *gin.Context) {
 }
 
 func (a *App) handleGetPlaylistItems(c *gin.Context) {
-	kcId := c.MustGet("KC_ID").(string)
-
-	var req playListItemRequest
-	if err := c.Bind(&req); err != nil {
-		NewBadRequestError(err).Abort(c)
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
 	}
+	defer closeTransaction(tx, nil)
+	a.getPlaylistItems(c, tx)
+}
 
+func (a *App) getPlaylistItems(c *gin.Context, tx boil.Executor) {
+	kcId := c.MustGet("KC_ID").(string)
 	mods := []qm.QueryMod{
 		qm.InnerJoin("playlist pl ON pl.id = playlist_id"),
 		qm.Where("pl.account_id = ?", kcId),
 		qm.OrderBy("position DESC"),
 	}
 
+	var req playListItemRequest
+	if err := c.Bind(&req); err != nil {
+		NewBadRequestError(err).Abort(c)
+	}
 	if req.PlayListIds != nil {
 		mods = append(mods, qm.WhereIn("pl.id IN ?", req.PlayListIds))
 	}
-
 	if len(req.UIDs) > 0 {
 		mods = append(mods, qm.WhereIn("content_unit_uid IN ?", utils.ConvertArgsString(req.UIDs)...))
 	}
 
-	plis, err := models.PlaylistItems(mods...).All(a.DB)
+	plis, err := models.PlaylistItems(mods...).All(tx)
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
 
-	concludeRequest(c, playlistItemResponse{PlaylistItems: plis}, nil)
+	concludeRequest(c, playlistItemResponse{PlaylistItems: plis}, NewInternalError(err))
 }
 
 func (a *App) handleAddToPlaylist(c *gin.Context) {
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	defer closeTransaction(tx, nil)
+	a.addToPlaylist(c, tx)
+}
+
+func (a *App) addToPlaylist(c *gin.Context, tx boil.Executor) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
 		NewBadRequestError(err).Abort(c)
 	}
-
 	kcId := c.MustGet("KC_ID").(string)
 
-	pl, err := models.Playlists(qm.Load("PlaylistItems"), qm.Where("id = ?", id)).One(a.DB)
+	pl, err := models.Playlists(qm.Load("PlaylistItems"), qm.Where("id = ?", id)).One(tx)
 	if err != nil {
 		NewInternalError(err).Abort(c)
 	}
 
 	if kcId != pl.AccountID {
-		err := errors.New("not acceptable")
-		NewHttpError(http.StatusNotAcceptable, err, gin.ErrorTypePrivate).Abort(c)
+		err := errors.New("playlist is forbidden")
+		NewHttpError(http.StatusForbidden, err, gin.ErrorTypePrivate).Abort(c)
 	}
 
 	var req UIDsRequest
@@ -284,48 +306,65 @@ func (a *App) handleAddToPlaylist(c *gin.Context) {
 
 	for _, nuid := range req.UIDs {
 		item := models.PlaylistItem{PlaylistID: id, ContentUnitUID: nuid}
-		if err := item.Insert(a.DB, boil.Infer()); err != nil {
+		if err := item.Insert(tx, boil.Infer()); err != nil {
 			NewInternalError(err).Abort(c)
 		}
 	}
-	err = pl.R.PlaylistItems.ReloadAll(a.DB)
+	err = pl.R.PlaylistItems.ReloadAll(tx)
 	concludeRequest(c, pl.R.PlaylistItems, NewInternalError(err))
 }
 
 func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	pi, err := a.updatePlaylistItems(c, tx)
+	closeTransaction(tx, err)
+	concludeRequest(c, pi, NewInternalError(err))
+}
+
+func (a *App) updatePlaylistItems(c *gin.Context, tx boil.Executor) (*models.PlaylistItem, *HttpError) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		NewBadRequestError(err).Abort(c)
+		return nil, NewBadRequestError(err)
 	}
-
 	kcId := c.MustGet("KC_ID").(string)
-
 	pi, err := models.PlaylistItems(
 		qm.InnerJoin("playlist pl ON pl.id = playlist_id"),
 		qm.Where("\"playlist_item\".id = ? AND pl.account_id = ?", id, kcId),
-	).One(a.DB)
+	).One(tx)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		return nil, NewInternalError(err)
 	}
 
 	var req models.PlaylistItem
 	if err := c.Bind(&req); err != nil {
-		NewBadRequestError(err).Abort(c)
+		return nil, NewBadRequestError(err)
 	}
 	if pi.Position != req.Position {
 		pi.Position = req.Position
-		_, err = pi.Update(a.DB, boil.Whitelist("position"))
+		_, err = pi.Update(tx, boil.Whitelist("position"))
 		if err != nil {
-			NewInternalError(err).Abort(c)
+			return nil, NewInternalError(err)
 		}
-		err = pi.Reload(a.DB)
+		err = pi.Reload(tx)
 	}
-	concludeRequest(c, pi, NewInternalError(err))
+	return pi, NewInternalError(err)
+
 }
 
 func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
-	kcId := c.MustGet("KC_ID").(string)
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	err = a.deleteFromPlaylist(c, tx)
+	closeTransaction(tx, err)
+}
 
+func (a *App) deleteFromPlaylist(c *gin.Context, tx boil.Executor) *HttpError {
+	kcId := c.MustGet("KC_ID").(string)
 	mods := []qm.QueryMod{
 		qm.InnerJoin("playlist pl ON  pl.id = \"playlist_item\".playlist_id"),
 		qm.Where("pl.account_id = ?", kcId),
@@ -333,7 +372,7 @@ func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
 
 	var req DeletePlaylistItemRequest
 	if err := c.Bind(&req); err != nil {
-		NewBadRequestError(err).Abort(c)
+		return NewBadRequestError(err)
 	}
 	if len(req.UIDs) > 0 && req.PlaylistId > 0 {
 		mods = append(mods, qm.WhereIn("\"playlist_item\".content_unit_uid IN ?", utils.ConvertArgsString(req.UIDs)...), qm.Where("pl.id = ?", req.PlaylistId))
@@ -343,12 +382,13 @@ func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
 		mods = append(mods, qm.WhereIn("\"playlist_item\".id IN ?", utils.ConvertArgsInt64(req.IDs)...))
 	}
 
-	plis, err := models.PlaylistItems(mods...).All(a.DB)
+	plis, err := models.PlaylistItems(mods...).All(tx)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		return NewInternalError(err)
 	}
-	resp, err := plis.DeleteAll(a.DB)
+	resp, err := plis.DeleteAll(tx)
 	concludeRequest(c, resp, NewInternalError(err))
+	return NewInternalError(err)
 }
 
 //Likes handlers
@@ -465,101 +505,6 @@ func (a *App) handleLikeCount(c *gin.Context) {
 	concludeRequest(c, count, NewInternalError(err))
 }
 
-//Subscriptions handlers
-func (a *App) handleGetSubscriptions(c *gin.Context) {
-	kcId := c.MustGet("KC_ID").(string)
-	mods := []qm.QueryMod{qm.Where("account_id = ?", kcId)}
-
-	total, err := models.Subscriptions(mods...).Count(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-	}
-	var list ListRequest
-	if c.Bind(&list) != nil {
-		NewBadRequestError(nil).Abort(c)
-	}
-
-	if list.OrderBy == "" {
-		list.OrderBy = "updated_at DESC"
-	}
-	if err := appendMyListMods(&mods, list); err != nil {
-		NewInternalError(err).Abort(c)
-	}
-	subs, err := models.Subscriptions(mods...).All(a.DB)
-
-	resp := subscriptionsResponse{
-		Subscriptions: subs,
-		ListResponse:  ListResponse{Total: total},
-	}
-	concludeRequest(c, resp, NewInternalError(err))
-}
-
-func (a *App) handleSubscribe(c *gin.Context) {
-	kcId := c.MustGet("KC_ID").(string)
-	var req subscribeRequest
-	if c.Bind(&req) != nil {
-		NewBadRequestError(nil).Abort(c)
-	}
-	var subs []*models.Subscription
-	for _, uid := range req.Collections {
-		if uid == "" {
-			continue
-		}
-		s := models.Subscription{
-			AccountID:      kcId,
-			CollectionUID:  null.String{String: uid, Valid: true},
-			ContentUnitUID: req.ContentUnitUID,
-		}
-		subs = append(subs, &s)
-	}
-
-	for _, t := range req.ContentTypes {
-		if t == "" {
-			continue
-		}
-		s := models.Subscription{
-			AccountID:      kcId,
-			ContentType:    null.String{String: t, Valid: true},
-			ContentUnitUID: req.ContentUnitUID,
-		}
-		subs = append(subs, &s)
-	}
-	if len(subs) == 0 {
-		NewBadRequestError(errors.New("must add or collection or CU type for subscribe")).Abort(c)
-	}
-
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-	}
-	for _, s := range subs {
-		err = s.Insert(tx, boil.Infer())
-		if err != nil {
-			break
-		}
-	}
-	closeTransaction(tx, err)
-	concludeRequest(c, subs, NewInternalError(err))
-}
-
-func (a *App) handleUnsubscribe(c *gin.Context) {
-
-	kcId := c.MustGet("KC_ID").(string)
-	var req IDsRequest
-	if c.Bind(&req) != nil {
-		NewBadRequestError(nil).Abort(c)
-	}
-	subs, err := models.Subscriptions(
-		qm.WhereIn("id in ?", utils.ConvertArgsInt64(req.IDs)...),
-		qm.Where("account_id = ?", kcId),
-	).All(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-	}
-	resp, err := subs.DeleteAll(a.DB)
-	concludeRequest(c, resp, NewInternalError(err))
-}
-
 //History handlers
 func (a *App) handleGetHistory(c *gin.Context) {
 	tx, err := openTransaction(a.DB)
@@ -622,7 +567,128 @@ func (a *App) deleteHistory(c *gin.Context, tx boil.Executor) {
 	concludeRequest(c, resp, NewInternalError(err))
 }
 
-/* HELPERS */
+//Subscriptions handlers
+
+func (a *App) handleGetSubscriptions(c *gin.Context) {
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	err = a.getSubscriptions(c, tx)
+	closeTransaction(tx, nil)
+}
+
+func (a *App) getSubscriptions(c *gin.Context, tx boil.Executor) *HttpError {
+	kcId := c.MustGet("KC_ID").(string)
+	mods := []qm.QueryMod{qm.Where("account_id = ?", kcId)}
+
+	total, err := models.Subscriptions(mods...).Count(tx)
+	if err != nil {
+		return NewInternalError(err)
+	}
+	var list ListRequest
+	if c.Bind(&list) != nil {
+		return NewBadRequestError(nil)
+	}
+
+	if list.OrderBy == "" {
+		list.OrderBy = "updated_at DESC"
+	}
+	if err := appendMyListMods(&mods, list); err != nil {
+		return NewInternalError(err)
+	}
+	subs, err := models.Subscriptions(mods...).All(tx)
+
+	resp := subscriptionsResponse{
+		Subscriptions: subs,
+		ListResponse:  ListResponse{Total: total},
+	}
+	concludeRequest(c, resp, NewInternalError(err))
+	return NewInternalError(err)
+}
+
+func (a *App) handleSubscribe(c *gin.Context) {
+
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	err = a.subscribe(c, tx)
+	closeTransaction(tx, err)
+}
+
+func (a *App) subscribe(c *gin.Context, tx boil.Executor) *HttpError {
+	kcId := c.MustGet("KC_ID").(string)
+	var req subscribeRequest
+	if c.Bind(&req) != nil {
+		return NewBadRequestError(nil)
+	}
+	var subs []*models.Subscription
+	for _, uid := range req.Collections {
+		if uid == "" {
+			continue
+		}
+		s := models.Subscription{
+			AccountID:      kcId,
+			CollectionUID:  null.String{String: uid, Valid: true},
+			ContentUnitUID: req.ContentUnitUID,
+		}
+		subs = append(subs, &s)
+	}
+
+	for _, t := range req.ContentTypes {
+		if t == "" {
+			continue
+		}
+		s := models.Subscription{
+			AccountID:      kcId,
+			ContentType:    null.String{String: t, Valid: true},
+			ContentUnitUID: req.ContentUnitUID,
+		}
+		subs = append(subs, &s)
+	}
+	if len(subs) == 0 {
+		return NewBadRequestError(errors.New("must add or collection or CU type for subscribe"))
+	}
+	var err error
+	for _, s := range subs {
+		err = s.Insert(tx, boil.Infer())
+		if err != nil {
+			break
+		}
+	}
+	concludeRequest(c, subs, NewInternalError(err))
+	return NewInternalError(err)
+}
+
+func (a *App) handleUnsubscribe(c *gin.Context) {
+	tx, err := openTransaction(a.DB)
+	if err != nil {
+		NewInternalError(err).Abort(c)
+	}
+	err = a.unsubscribe(c, tx)
+	closeTransaction(tx, err)
+}
+
+func (a *App) unsubscribe(c *gin.Context, tx boil.Executor) *HttpError {
+	kcId := c.MustGet("KC_ID").(string)
+	var req IDsRequest
+	if c.Bind(&req) != nil {
+		return NewBadRequestError(nil)
+	}
+	subs, err := models.Subscriptions(
+		qm.WhereIn("id in ?", utils.ConvertArgsInt64(req.IDs)...),
+		qm.Where("account_id = ?", kcId),
+	).All(tx)
+	if err != nil {
+		return NewInternalError(err)
+	}
+	resp, err := subs.DeleteAll(tx)
+	concludeRequest(c, resp, NewInternalError(err))
+	return NewInternalError(err)
+}
+
+//help functions
 
 func openTransaction(db *sql.DB) (*sql.Tx, error) {
 	log.Info("open transaction")

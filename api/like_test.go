@@ -64,7 +64,8 @@ func (s *RestTestSuite) TestLikes_paginate() {
 	s.Require().Nil(err)
 	s.app.getLikes(c, s.tx)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
-	s.EqualValues(5, resp.Total, "total")
+	s.Equal(int64(20), resp.Total, "total")
+	s.Equal(5, len(resp.Likes))
 	for i, x := range resp.Likes {
 		s.assertEqualLikes(items[i+5], x, i+5)
 	}
@@ -87,7 +88,7 @@ func (s *RestTestSuite) TestLikes_add() {
 	s.Require().Nil(err)
 	s.app.getLikes(c, s.tx)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
-	s.EqualValues(1, resp.Total, "total")
+	s.EqualValues(int64(2), resp.Total, "total")
 
 	s.Equal(len(uids.UIDs), len(resp.Likes))
 	for _, a := range resp.Likes {

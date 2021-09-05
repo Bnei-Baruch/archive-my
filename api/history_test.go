@@ -40,12 +40,12 @@ func (s *RestTestSuite) TestHistory_diffAccounts() {
 	items := s.createDummyHistory(10)
 	items[1].AccountID = "new_account_id"
 	_, err := items[1].Update(s.tx, boil.Whitelist("account_id"))
-	s.Nil(err)
+	s.NoError(err)
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
-	s.Require().Nil(err)
+	s.NoError(err)
 	var resp historyResponse
-	s.app.getLikes(c, s.tx)
-	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
+	s.app.getHistory(c, s.tx)
+	s.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(9, resp.Total, "total")
 	for _, l := range resp.History {
 		s.Equal(s.kcId, l.AccountID)
@@ -60,7 +60,8 @@ func (s *RestTestSuite) TestHistory_paginate() {
 	s.Require().Nil(err)
 	s.app.getHistory(c, s.tx)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
-	s.EqualValues(5, resp.Total, "total")
+	s.Equal(int64(20), resp.Total, "total")
+	s.Equal(5, len(resp.History))
 	for i, x := range resp.History {
 		s.assertEqualHistory(items[i+5], x, i+5)
 	}
