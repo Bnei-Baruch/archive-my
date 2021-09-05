@@ -71,11 +71,6 @@ type ChronicleEventData struct {
 	CurrentTime null.Int64 `json:"current_time,omitempty"`
 }
 
-type subscriptionScanResult struct {
-	ID            int64  `boil:"id"`
-	CollectionUID string `boil:"uid"`
-}
-
 func (c *Chronicles) Init(dbstr, mdbstr string, client *http.Client) {
 	if dbstr == "" {
 		dbstr = viper.GetString("app.mydb")
