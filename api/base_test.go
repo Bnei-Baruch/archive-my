@@ -23,7 +23,7 @@ type RestTestSuite struct {
 func (s *RestTestSuite) SetupSuite() {
 	s.NoError(utils.InitConfig("", "../"))
 	s.app = new(App)
-	_, err := s.InitTestDB()
+	_, _, err := s.InitTestDB()
 	s.Require().Nil(err)
 	s.app.SetDB(s.DB)
 

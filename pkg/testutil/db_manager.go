@@ -30,27 +30,29 @@ type TestDBManager struct {
 	DBCleaner dbcleaner.DbCleaner
 }
 
-func (m *TestDBManager) InitTestDB() (string, error) {
+func (m *TestDBManager) InitTestDB() (string, string, error) {
 	//boil.DebugMode = true
 
 	m.DBCleaner = dbcleaner.New()
 	var mdbDs string
-	if db, _, name, err := m.initDB(false); err != nil {
-		return "", err
+	var dbDs string
+	if db, dsn, name, err := m.initDB(false); err != nil {
+		return "", "", err
 	} else {
 		m.DB = db
 		m.testDB = name
+		dbDs = dsn
 	}
 
 	if db, dsn, name, err := m.initDB(true); err != nil {
-		return "", err
+		return "", "", err
 	} else {
 		m.MDB = db
 		m.testMDB = name
 		mdbDs = dsn
 	}
 
-	return mdbDs, nil
+	return dbDs, mdbDs, nil
 }
 
 func (m *TestDBManager) initDB(isMDB bool) (*sql.DB, string, string, error) {

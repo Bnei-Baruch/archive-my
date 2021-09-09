@@ -72,13 +72,10 @@ func (s *RestTestSuite) TestPlaylist_paginate() {
 
 func (s *RestTestSuite) TestPlaylist_add() {
 	newPl := models.Playlist{ID: 1, Name: null.String{String: "new playlist", Valid: true}}
-	cAdd, wAdd, err := testutil.PrepareContext(newPl)
+	cAdd, _, err := testutil.PrepareContext(newPl)
 	s.NoError(err)
-	err = s.app.createPlaylist(cAdd, s.tx)
+	respAdd, err := s.app.createPlaylist(cAdd, s.tx)
 	s.NoError(err)
-
-	var respAdd []models.Playlist
-	s.NoError(json.Unmarshal(wAdd.Body.Bytes(), &respAdd))
 	s.Equal(newPl.ID, respAdd[0].ID)
 
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
