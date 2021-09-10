@@ -1,4 +1,4 @@
-module archive-my
+module github.com/Bnei-Baruch/archive-my
 
 go 1.16
 

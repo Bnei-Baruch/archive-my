@@ -1,7 +1,7 @@
 package api
 
 import (
-	"archive-my/models"
+	"github.com/Bnei-Baruch/archive-my/models"
 )
 
 //Responses

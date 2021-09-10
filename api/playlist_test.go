@@ -8,9 +8,9 @@ import (
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
-	"archive-my/models"
-	"archive-my/pkg/testutil"
-	"archive-my/pkg/utils"
+	"github.com/Bnei-Baruch/archive-my/models"
+	"github.com/Bnei-Baruch/archive-my/pkg/testutil"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 func (s *RestTestSuite) TestPlaylist_noPlaylist() {

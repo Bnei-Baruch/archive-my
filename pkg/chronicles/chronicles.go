@@ -17,8 +17,8 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
-	"archive-my/models"
-	"archive-my/pkg/utils"
+	"github.com/Bnei-Baruch/archive-my/models"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 const (

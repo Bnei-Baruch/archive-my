@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"archive-my/api"
-	"archive-my/pkg/chronicles"
+	"github.com/Bnei-Baruch/archive-my/api"
+	"github.com/Bnei-Baruch/archive-my/pkg/chronicles"
 )
 
 var serverCmd = &cobra.Command{

@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"archive-my/pkg/testutil"
-	"archive-my/pkg/utils"
+	"github.com/Bnei-Baruch/archive-my/pkg/testutil"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type ChroniclesTestSuite struct {

@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
-	"archive-my/pkg/authutil"
-	"archive-my/pkg/utils"
+	"github.com/Bnei-Baruch/archive-my/pkg/authutil"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type App struct {

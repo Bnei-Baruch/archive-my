@@ -18,8 +18,8 @@ import (
 	"gopkg.in/khaiql/dbcleaner.v2"
 	"gopkg.in/khaiql/dbcleaner.v2/engine"
 
-	migrations "archive-my/mdb_migrations"
-	"archive-my/pkg/utils"
+	migrations "github.com/Bnei-Baruch/archive-my/mdb_migrations"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type TestDBManager struct {
