@@ -15,25 +15,21 @@ import (
 	"github.com/lib/pq"
 	"github.com/spf13/viper"
 	_ "github.com/stretchr/testify"
-	"gopkg.in/khaiql/dbcleaner.v2"
-	"gopkg.in/khaiql/dbcleaner.v2/engine"
 
 	migrations "archive-my/mdb_migrations"
 	"archive-my/pkg/utils"
 )
 
 type TestDBManager struct {
-	DB        *sql.DB
-	MDB       *sql.DB
-	testDB    string
-	testMDB   string
-	DBCleaner dbcleaner.DbCleaner
+	DB      *sql.DB
+	MDB     *sql.DB
+	testDB  string
+	testMDB string
 }
 
 func (m *TestDBManager) InitTestDB() (string, string, error) {
 	//boil.DebugMode = true
 
-	m.DBCleaner = dbcleaner.New()
 	var mdbDs string
 	var dbDs string
 	if db, dsn, name, err := m.initDB(false); err != nil {
@@ -51,12 +47,11 @@ func (m *TestDBManager) InitTestDB() (string, string, error) {
 		m.testMDB = name
 		mdbDs = dsn
 	}
-
-	return dbDs, mdbDs, nil
+	err := utils.InitCT(m.MDB)
+	return dbDs, mdbDs, err
 }
 
 func (m *TestDBManager) initDB(isMDB bool) (*sql.DB, string, string, error) {
-	//boil.DebugMode = true
 	prefix := ""
 	if isMDB {
 		prefix = "_mdb"
@@ -105,18 +100,12 @@ func (m *TestDBManager) initDB(isMDB bool) (*sql.DB, string, string, error) {
 			return nil, "", "", err
 		}
 	}
-	m.DBCleaner.SetEngine(engine.NewPostgresEngine(dsn))
 
 	return db, dsn, name, nil
 }
 
 func (m *TestDBManager) DestroyTestDB() error {
 	fmt.Println("Destroying testDB: ", m.testDB)
-
-	// Close DB cleaner
-	if err := m.DBCleaner.Close(); err != nil {
-		return err
-	}
 
 	if err := m.destroyDB(m.DB, m.testDB); err != nil {
 		return err

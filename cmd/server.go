@@ -20,7 +20,10 @@ func init() {
 func serverFn(cmd *cobra.Command, args []string) {
 	a := new(api.App)
 	a.InitDeps()
+
 	chr := new(chronicles.Chronicles)
+	chr.Init("", "")
 	chr.Run()
+
 	a.Run()
 }

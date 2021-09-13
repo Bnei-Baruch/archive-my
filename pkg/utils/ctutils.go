@@ -1,27 +1,32 @@
 package utils
 
 import (
-	"github.com/volatiletech/sqlboiler/v4/boil"
+	"database/sql"
 )
 
-var ContentTypesByName map[string]*contentType
-var ContentTypesByID map[int]*contentType
+var ContentTypesByName map[string]int
+var ContentTypesByID map[int]string
 
-type contentType struct {
-	Name string
-	ID   int
-}
+func InitCT(db *sql.DB) error {
+	ContentTypesByName = make(map[string]int, 0)
+	ContentTypesByID = make(map[int]string, 0)
 
-func InitCT(db boil.Executor) error {
-	q, err := db.Query("SELECT id, name FROM content_types ct")
+	rows, err := db.Query("SELECT id, name FROM content_types ct")
 	if err != nil {
 		return err
 	}
-	var cts []*contentType
-	err = q.Scan(&cts)
-	for _, ct := range cts {
-		ContentTypesByName[ct.Name] = ct
-		ContentTypesByID[ct.ID] = ct
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			name string
+			id   int
+		)
+		err = rows.Scan(&id, &name)
+		if err != nil {
+			return err
+		}
+		ContentTypesByName[name] = id
+		ContentTypesByID[id] = name
 	}
 	return nil
 }

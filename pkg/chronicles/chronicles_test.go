@@ -31,13 +31,12 @@ func (s *ChroniclesTestSuite) SetupSuite() {
 		//res.WriteHeader(scenario.expectedRespStatus)
 		res.Write([]byte("body"))
 	}))
-	s.chr.Init(dbS, mdbS, s.mockChronicles.Client())
+	s.chr.Init(dbS, mdbS)
 
 }
 
 func (s *ChroniclesTestSuite) TearDownSuite() {
-	s.DestroyTestDB()
-	//s.Require().Nil(s.DestroyTestDB())
+	s.Require().Nil(s.DestroyTestDB())
 }
 
 func (s *ChroniclesTestSuite) SetupTest() {

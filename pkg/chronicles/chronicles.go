@@ -22,18 +22,15 @@ import (
 )
 
 const (
-	SCAN_SIZE                 = 1000
-	MAX_INTERVAL              = time.Duration(time.Minute)
-	MIN_INTERVAL              = time.Duration(100 * time.Millisecond)
-	CR_EVENT_TYPE_PLAYER_PLAY = "player-play"
-	CR_EVENT_TYPE_PLAYER_STOP = "player-stop"
-	WAIT_FOR_SAVE             = time.Duration(5 * time.Minute)
+	SCAN_SIZE     = 30
+	MAX_INTERVAL  = time.Duration(time.Minute)
+	MIN_INTERVAL  = time.Duration(100 * time.Millisecond)
+	WAIT_FOR_SAVE = time.Duration(1 * time.Minute)
 )
 
 type Chronicles struct {
 	ticker   *time.Ticker
 	interval time.Duration
-	evByAcc  map[string]*ChronicleEvent
 
 	lastReadId  string
 	prevReadId  string
@@ -41,8 +38,6 @@ type Chronicles struct {
 
 	DBstr  string
 	MDBstr string
-
-	httpClient *http.Client
 }
 
 type ScanResponse struct {
@@ -50,28 +45,27 @@ type ScanResponse struct {
 }
 
 type ChronicleEvent struct {
-	AccountId       string      `json:"user_id"`
-	CreatedAt       time.Time   `json:"created_at"`
-	IPAddr          string      `boil:"ip_addr" json:"ip_addr" toml:"ip_addr" yaml:"ip_addr"`
-	ID              string      `json:"id"`
-	UserAgent       string      `json:"user_agent"`
-	Namespace       string      `json:"namespace"`
-	ClientEventID   null.String `json:"client_event_id,omitempty"`
-	ClientEventType string      `json:"client_event_type"`
-	ClientFlowID    null.String `json:"client_flow_id,omitempty"`
-	ClientFlowType  null.String `json:"client_flow_type,omitempty"`
-	ClientSessionID null.String `toml:"client_session_id"`
-	Data            null.JSON   `json:"data,omitempty"`
-	FirstScanAt     time.Time   `json:"-"`
+	AccountId       string             `json:"user_id"`
+	CreatedAt       time.Time          `json:"created_at"`
+	IPAddr          string             `boil:"ip_addr" json:"ip_addr" toml:"ip_addr" yaml:"ip_addr"`
+	ID              string             `json:"id"`
+	UserAgent       string             `json:"user_agent"`
+	Namespace       string             `json:"namespace"`
+	ClientEventID   null.String        `json:"client_event_id,omitempty"`
+	ClientEventType string             `json:"client_event_type"`
+	ClientFlowID    null.String        `json:"client_flow_id,omitempty"`
+	ClientFlowType  null.String        `json:"client_flow_type,omitempty"`
+	ClientSessionID null.String        `toml:"client_session_id"`
+	Data            ChronicleEventData `json:"data,omitempty"`
 }
 
 type ChronicleEventData struct {
-	UnitUID     string     `json:"unit_uid"`
-	TimeZone    string     `json:"time_zone,omitempty"`
-	CurrentTime null.Int64 `json:"current_time,omitempty"`
+	UnitUID     string       `json:"unit_uid,omitempty"`
+	TimeZone    string       `json:"time_zone,omitempty"`
+	CurrentTime null.Float64 `json:"current_time,omitempty"`
 }
 
-func (c *Chronicles) Init(dbstr, mdbstr string, client *http.Client) {
+func (c *Chronicles) Init(dbstr, mdbstr string) {
 	if dbstr == "" {
 		dbstr = viper.GetString("app.mydb")
 	}
@@ -81,17 +75,11 @@ func (c *Chronicles) Init(dbstr, mdbstr string, client *http.Client) {
 		mdbstr = viper.GetString("app.mdb")
 	}
 	c.MDBstr = mdbstr
-
-	if client == nil {
-		client = &http.Client{}
-	}
-	c.httpClient = client
 }
 
 func (c *Chronicles) Run() {
 	c.interval = MIN_INTERVAL
 	c.ticker = time.NewTicker(MIN_INTERVAL)
-	c.evByAcc = make(map[string]*ChronicleEvent, 0)
 
 	mdb, err := sql.Open("postgres", c.MDBstr)
 	utils.Must(err)
@@ -156,9 +144,32 @@ func (c *Chronicles) refresh() error {
 }
 
 func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
+	db, err := sql.Open("postgres", c.DBstr)
+	utils.Must(err)
+	utils.Must(db.Ping())
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	events, err := c.scanEventsOnTx(tx, viper.GetString("app.scan_url"))
+	var eTx error
+	if err == nil {
+		eTx = tx.Commit()
+	} else {
+		eTx = tx.Rollback()
+	}
+	if eTx != nil {
+		return nil, eTx
+	}
+	return events, nil
+}
+
+func (c *Chronicles) scanEventsOnTx(tx *sql.Tx, scanUrl string) ([]*ChronicleEvent, error) {
 	log.Infof("Scanning chronicles entries, last successfull [%s]", c.lastReadId)
 	b := bytes.NewBuffer([]byte(fmt.Sprintf(`{"id":"%s","limit":%d, "event_types": ["player-play", "player-stop"], "namespaces": ["archive"]}`, c.lastReadId, SCAN_SIZE)))
-	resp, err := c.httpClient.Post(viper.GetString("app.scan_url"), "application/json", b)
+	resp, err := http.Post(scanUrl, "application/json", b)
 	if err != nil {
 		return nil, err
 	}
@@ -178,85 +189,45 @@ func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
 	if len(scanResponse.Entries) > 0 {
 		c.lastReadId = scanResponse.Entries[len(scanResponse.Entries)-1].ID
 	}
-	if err := c.saveEvents(scanResponse.Entries); err != nil {
+	if err := c.saveEvents(tx, scanResponse.Entries); err != nil {
 		return nil, err
 	}
 	return scanResponse.Entries, nil
 }
 
-func (c *Chronicles) saveEvents(events []*ChronicleEvent) error {
-	db, err := sql.Open("postgres", c.DBstr)
-	utils.Must(err)
-	utils.Must(db.Ping())
-	defer db.Close()
-
+func (c *Chronicles) saveEvents(tx *sql.Tx, events []*ChronicleEvent) error {
 	mdb, err := sql.Open("postgres", c.MDBstr)
 	utils.Must(err)
 	utils.Must(mdb.Ping())
 	defer mdb.Close()
 
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
+	evByAcc := make(map[string]*ChronicleEvent, 0)
 	for _, x := range events {
-		if x.ClientEventType != CR_EVENT_TYPE_PLAYER_PLAY && x.ClientEventType != CR_EVENT_TYPE_PLAYER_STOP {
-			continue
+		k := fmt.Sprintf("%s_%s", x.AccountId, x.Data.UnitUID)
+		if x.Data.CurrentTime.Float64 > WAIT_FOR_SAVE.Minutes() {
+			evByAcc[k] = x
 		}
-
-		if prevE, ok := c.evByAcc[x.AccountId]; ok && prevE != nil {
-			if x.ClientEventType == CR_EVENT_TYPE_PLAYER_STOP && x.FirstScanAt.After(c.nextRefresh.Add(WAIT_FOR_SAVE)) {
-				c.evByAcc[x.AccountId] = nil
-				continue
-			}
-			if x.ClientEventType != CR_EVENT_TYPE_PLAYER_PLAY {
-				x.FirstScanAt = prevE.FirstScanAt
-			}
-		} else {
-			x.FirstScanAt = c.nextRefresh
-		}
-		c.evByAcc[x.AccountId] = x
 	}
 
-	for _, x := range c.evByAcc {
+	for _, x := range evByAcc {
 		if x == nil {
 			continue
 		}
-		if x.FirstScanAt.After(c.nextRefresh.Add(WAIT_FOR_SAVE)) {
-			continue
-		}
-		c.evByAcc[x.AccountId] = nil
 		err = c.insertEvent(tx, mdb, x)
 		if err != nil {
 			break
 		}
+		err = c.updateSubscriptions(tx, mdb, x)
+		if err != nil {
+			break
+		}
 	}
-
-	var eTx error
-	if err == nil {
-		eTx = tx.Commit()
-	} else {
-		eTx = tx.Rollback()
-	}
-	if eTx != nil {
-		return eTx
-	}
-	return nil
+	return err
 }
 
 func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) error {
-	var data map[string]interface{}
-	if err := json.Unmarshal(ev.Data.JSON, &data); err != nil {
-		return err
-	}
-
-	unitUID := fmt.Sprint(data["unit_uid"])
-	if err := c.updateSubscriptions(tx, mdb, ev, unitUID); err != nil {
-		return err
-	}
 	nParams := make(map[string]interface{})
-	nParams["current_time"] = data["current_time"]
+	nParams["current_time"] = ev.Data.CurrentTime
 
 	j, err := json.Marshal(nParams)
 	if err != nil {
@@ -265,8 +236,8 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) er
 
 	year, month, day := ev.CreatedAt.Date()
 	var tz string
-	if v, ok := data["time_zone"]; ok {
-		tz = fmt.Sprint(v)
+	if ev.Data.TimeZone != "" {
+		tz = fmt.Sprint(ev.Data.TimeZone)
 	}
 	timeZone, err := time.LoadLocation(tz)
 	if err != nil {
@@ -276,13 +247,13 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) er
 	eDay := sDay.Add(24 * time.Hour)
 	log.Infof("%v, %v", sDay, eDay)
 	h, errDB := models.Histories(
-		qm.Where("account_id = ? AND content_unit_uid = ? AND created_at > ? AND created_at < ?", ev.AccountId, unitUID, sDay, eDay),
+		qm.Where("account_id = ? AND content_unit_uid = ? AND created_at > ? AND created_at < ?", ev.AccountId, ev.Data.UnitUID, sDay, eDay),
 	).One(tx)
 	if errDB == sql.ErrNoRows {
 		h = &models.History{
-			AccountID:      ev.AccountId[0:36],
+			AccountID:      ev.AccountId,
 			ChronicleID:    ev.ID,
-			ContentUnitUID: null.String{String: unitUID, Valid: true},
+			ContentUnitUID: null.String{String: ev.Data.UnitUID, Valid: true},
 			Data:           null.JSON{JSON: j, Valid: true},
 			CreatedAt:      ev.CreatedAt,
 		}
@@ -290,7 +261,8 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) er
 	} else if errDB != nil {
 		return err
 	}
-
+	h.ChronicleID = ev.ID
+	h.CreatedAt = ev.CreatedAt
 	params, err := margeData(h.Data, nParams)
 	if err != nil {
 		return err
@@ -300,10 +272,7 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) er
 	return err
 }
 
-func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent, uid string) error {
-	if ev.ClientEventType != CR_EVENT_TYPE_PLAYER_PLAY {
-		return nil
-	}
+func (c *Chronicles) updateSubscriptions(tx boil.Executor, mdb *sql.DB, ev *ChronicleEvent) error {
 	subs, err := models.Subscriptions(qm.Where("account_id = ?", ev.AccountId)).All(tx)
 	if subs == nil {
 		return nil
@@ -316,20 +285,19 @@ func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleE
 	cuUIDs := make([]int64, len(subs))
 	for i, s := range subs {
 		cuUIDs[i] = s.ID
-		if s.CollectionUID.Valid {
+		if s.CollectionUID.Valid && s.CollectionUID.String != "" {
 			byCOs = append(byCOs, s)
-		}
-		if s.ContentType.Valid {
+		} else if s.ContentType.Valid && s.ContentType.String != "" {
 			byTypes = append(byTypes, s)
 		}
 	}
 
-	query := `SELECT co.uid as co_uid, cu.type_id as type_id  FROM collections_content_units ccu
+	query := fmt.Sprintf(`SELECT co.uid, co.type_id FROM collections_content_units ccu
 			INNER JOIN content_units cu ON ccu.content_unit_id = cu.id
 			INNER JOIN collections co ON ccu.collection_id = co.id
-			WHERE cu.uid = ?`
+			WHERE cu.uid = '%s'`, ev.Data.UnitUID)
 
-	rows, err := queries.Raw(query, uid).Query(mdb)
+	rows, err := queries.Raw(query).Query(mdb)
 	if err == sql.ErrNoRows {
 		return nil
 	} else if err != nil {
@@ -339,21 +307,21 @@ func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleE
 	forUpdate := models.SubscriptionSlice{}
 	for rows.Next() {
 		var (
-			type_id int
-			co_uid  string
+			coUid  string
+			typeId int
 		)
-		err = rows.Scan(&type_id, &co_uid)
+		err = rows.Scan(&coUid, &typeId)
 		if err != nil {
 			return err
 		}
-		ct := utils.ContentTypesByID[type_id]
+		name := utils.ContentTypesByID[typeId]
 		for _, s := range byTypes {
-			if s.ContentType.String == ct.Name {
+			if s.ContentType.String == name {
 				forUpdate = append(forUpdate, s)
 			}
 		}
 		for _, s := range byCOs {
-			if s.CollectionUID.String == co_uid {
+			if s.CollectionUID.String == coUid {
 				forUpdate = append(forUpdate, s)
 			}
 		}
@@ -363,7 +331,7 @@ func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleE
 	}
 
 	col := make(map[string]interface{}, 0)
-	col["updated_at"] = time.Now()
+	col["updated_at"] = ev.CreatedAt
 	_, err = forUpdate.UpdateAll(tx, col)
 	return err
 }
@@ -381,7 +349,7 @@ func margeData(data null.JSON, nd map[string]interface{}) (*null.JSON, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &null.JSON{JSON: dStr}, nil
+	return &null.JSON{JSON: dStr, Valid: true}, nil
 }
 
 func minDuration(x, y time.Duration) time.Duration {
