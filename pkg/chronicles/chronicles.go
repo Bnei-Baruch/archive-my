@@ -168,7 +168,9 @@ func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
 
 func (c *Chronicles) scanEventsOnTx(tx *sql.Tx, scanUrl string) ([]*ChronicleEvent, error) {
 	log.Infof("Scanning chronicles entries, last successfull [%s]", c.lastReadId)
-	b := bytes.NewBuffer([]byte(fmt.Sprintf(`{"id":"%s","limit":%d, "event_types": ["player-play", "player-stop"], "namespaces": ["archive"]}`, c.lastReadId, SCAN_SIZE)))
+	args := fmt.Sprintf(`{"id":"%s","limit":%d, "event_types": ["player-play", "player-stop"], "namespaces": ["archive"], "keycloak": true}`, c.lastReadId, SCAN_SIZE)
+	log.Infof("Scan chronicles with arguments [%s]", args)
+	b := bytes.NewBuffer([]byte(args))
 	resp, err := http.Post(scanUrl, "application/json", b)
 	if err != nil {
 		return nil, err

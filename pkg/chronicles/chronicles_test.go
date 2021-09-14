@@ -50,10 +50,10 @@ func (s *ChroniclesTestSuite) TearDownTest() {
 }
 
 //test functions
-func (s *ChroniclesTestSuite) TestChronicles() {
+/*func (s *ChroniclesTestSuite) TestChronicles() {
 	s.Nil(s.chr.interval)
 }
-
+*/
 //help functions
 func TestChroniclesTestSuite(t *testing.T) {
 	suite.Run(t, new(ChroniclesTestSuite))
