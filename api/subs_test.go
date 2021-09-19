@@ -78,7 +78,7 @@ func (s *RestTestSuite) TestSubscribe_add() {
 	cAdd, _, err := testutil.PrepareContext(uids)
 	s.Require().Nil(err)
 	respAdd, err := s.app.addLikes(cAdd, s.tx)
-	s.NoError(err)
+	s.Nil(err)
 	s.Equal(len(uids.UIDs), len(respAdd))
 	for _, a := range respAdd {
 		s.Contains(uids.UIDs, a.ContentUnitUID)

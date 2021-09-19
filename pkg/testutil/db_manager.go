@@ -77,7 +77,7 @@ func (m *TestDBManager) initDB(isMDB bool) (*sql.DB, string, string, error) {
 	// Connect to temp database and run migrations
 	ds := viper.GetString("app.mydb")
 	if isMDB {
-		ds = viper.GetString("app.mdb")
+		ds = viper.GetString("app.mdb_test")
 	}
 	dsn, err := m.replaceDBName(name, ds)
 	if err != nil {

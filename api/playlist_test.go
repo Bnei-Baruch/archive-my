@@ -75,7 +75,7 @@ func (s *RestTestSuite) TestPlaylist_add() {
 	cAdd, _, err := testutil.PrepareContext(newPl)
 	s.NoError(err)
 	respAdd, err := s.app.createPlaylist(cAdd, s.tx)
-	s.NoError(err)
+	s.Nil(err)
 	s.Equal(newPl.ID, respAdd[0].ID)
 
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
