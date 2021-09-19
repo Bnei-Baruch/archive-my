@@ -16,7 +16,7 @@ func (s *RestTestSuite) TestHistory_noHistory() {
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
 
-	s.app.getLikes(c, s.tx)
+	s.app.getHistory(c, s.tx)
 	var resp historyResponse
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(0, resp.Total, "empty total")
@@ -119,7 +119,7 @@ func (s *RestTestSuite) createDummyHistory(n int64) []*models.History {
 }
 
 func (s *RestTestSuite) assertEqualHistory(l *models.History, x *models.History, idx int) {
-	s.Equal(l.ID, x.ID, "like.ID [%d]", idx)
-	s.Equal(l.AccountID, x.AccountID, "like.AccountID [%d]", idx)
-	s.Equal(l.ContentUnitUID, x.ContentUnitUID, "like.UnitUID [%d]", idx)
+	s.Equal(l.ID, x.ID)
+	s.Equal(l.AccountID, x.AccountID)
+	s.Equal(l.ContentUnitUID, x.ContentUnitUID)
 }

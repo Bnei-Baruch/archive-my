@@ -103,7 +103,7 @@ func (s *RestTestSuite) TestLikes_remove() {
 	ids := &IDsRequest{IDs: []int64{itemR1.ID, itemR2.ID}}
 	cDel, _, err := testutil.PrepareContext(ids)
 	s.Require().Nil(err)
-	s.app.removeLikes(cDel, s.tx)
+	s.app.deleteLikes(cDel, s.tx)
 
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 20})
 	var resp likesResponse
@@ -126,7 +126,7 @@ func (s *RestTestSuite) TestLikes_removeOtherAcc() {
 	ids := &IDsRequest{IDs: []int64{item.ID}}
 	cDel, _, err := testutil.PrepareContext(ids)
 	s.Require().Nil(err)
-	s.app.removeLikes(cDel, s.tx)
+	s.app.deleteLikes(cDel, s.tx)
 	count, err := models.Likes().Count(s.tx)
 	s.NoError(err)
 	s.Equal(int64(10), count)

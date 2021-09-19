@@ -465,18 +465,18 @@ func (a *App) addLikes(c *gin.Context, tx *sql.Tx) ([]*models.Like, *HttpError) 
 	return likes, NewInternalError(err)
 }
 
-func (a *App) handleRemoveLikes(c *gin.Context) {
+func (a *App) handleDeleteLikes(c *gin.Context) {
 	tx, err := openTransaction(a.DB)
 	if err != nil {
 		NewInternalError(err).Abort(c)
 		return
 	}
-	httpErr := a.removeLikes(c, tx)
+	httpErr := a.deleteLikes(c, tx)
 	closeTransaction(tx, httpErr)
 	concludeRequest(c, nil, httpErr)
 }
 
-func (a *App) removeLikes(c *gin.Context, tx boil.Executor) *HttpError {
+func (a *App) deleteLikes(c *gin.Context, tx boil.Executor) *HttpError {
 	kcId := c.MustGet("KC_ID").(string)
 
 	var ids IDsRequest

@@ -13,28 +13,28 @@ import (
 	"archive-my/pkg/utils"
 )
 
-func (s *RestTestSuite) TestSubscribe_noLikes() {
+func (s *RestTestSuite) TestSubscribe_noSubscriptions() {
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
 
-	s.app.getLikes(c, s.tx)
-	var resp likesResponse
+	s.app.getSubscriptions(c, s.tx)
+	var resp subscriptionsResponse
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(0, resp.Total, "empty total")
-	s.Empty(resp.Likes, "empty data")
+	s.Empty(resp.Subscriptions, "empty data")
 }
 
 func (s *RestTestSuite) TestSubscribe_simpleGet() {
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
 
-	var resp likesResponse
-	items := s.createDummyLike(10)
-	s.app.getLikes(c, s.tx)
+	var resp subscriptionsResponse
+	items := s.createDummySubscriptions(10)
+	s.app.getSubscriptions(c, s.tx)
 	s.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(10, resp.Total, "total")
-	for i, x := range resp.Likes {
-		s.assertEqualLikes(items[i], x, i)
+	for i, x := range resp.Subscriptions {
+		s.assertEqualSubscriptions(items[i], x)
 	}
 }
 
@@ -42,16 +42,16 @@ func (s *RestTestSuite) TestSubscribe_diffAccounts() {
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
 
-	items := s.createDummyLike(10)
+	items := s.createDummySubscriptions(10)
 
-	var resp likesResponse
+	var resp subscriptionsResponse
 	items[1].AccountID = "new_account_id"
 	_, err = items[1].Update(s.tx, boil.Whitelist("account_id"))
 	s.Nil(err)
-	s.app.getLikes(c, s.tx)
+	s.app.getSubscriptions(c, s.tx)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(9, resp.Total, "total")
-	for _, l := range resp.Likes {
+	for _, l := range resp.Subscriptions {
 		s.Equal(s.kcId, l.AccountID)
 	}
 }
@@ -60,64 +60,74 @@ func (s *RestTestSuite) TestSubscribe_paginate() {
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 2, PageSize: 5})
 	s.Require().Nil(err)
 
-	items := s.createDummyLike(20)
+	items := s.createDummySubscriptions(20)
 
-	var resp likesResponse
+	var resp subscriptionsResponse
 	s.Require().Nil(err)
-	s.app.getLikes(c, s.tx)
+	s.app.getSubscriptions(c, s.tx)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.Equal(int64(20), resp.Total, "total")
-	s.Equal(5, len(resp.Likes))
-	for i, x := range resp.Likes {
-		s.assertEqualLikes(items[i+5], x, i+5)
+	s.Equal(5, len(resp.Subscriptions))
+	for i, x := range resp.Subscriptions {
+		s.assertEqualSubscriptions(items[i+5], x)
 	}
 }
 
 func (s *RestTestSuite) TestSubscribe_add() {
-	uids := UIDsRequest{UIDs: []string{utils.GenerateUID(8), utils.GenerateUID(8)}}
-	cAdd, _, err := testutil.PrepareContext(uids)
-	s.Require().Nil(err)
-	respAdd, err := s.app.addLikes(cAdd, s.tx)
-	s.Nil(err)
-	s.Equal(len(uids.UIDs), len(respAdd))
-	for _, a := range respAdd {
-		s.Contains(uids.UIDs, a.ContentUnitUID)
+	ctSub := consts.CT_SUBSCRIBE_BY_TYPE[rand.Int()%len(consts.CT_SUBSCRIBE_BY_TYPE)]
+	coSub := utils.GenerateUID(8)
+	subs := subscribeRequest{
+		Collections:    []string{coSub},
+		ContentTypes:   []string{ctSub},
+		ContentUnitUID: "",
 	}
+	cAdd, _, err := testutil.PrepareContext(subs)
+	s.Require().Nil(err)
+	respAdd, err := s.app.subscribe(cAdd, s.tx)
+	s.Nil(err)
+	s.Equal(2, len(respAdd))
 
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
-	var resp likesResponse
+	var resp subscriptionsResponse
 	s.Require().Nil(err)
-	s.app.getLikes(c, s.tx)
+	s.app.getSubscriptions(c, s.tx)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(int64(2), resp.Total, "total")
 
-	s.Equal(len(uids.UIDs), len(resp.Likes))
-	for _, a := range resp.Likes {
-		s.Contains(uids.UIDs, a.ContentUnitUID)
+	for _, sub := range resp.Subscriptions {
+		if sub.CollectionUID.Valid {
+			s.Equal(sub.CollectionUID.String, coSub)
+			s.False(sub.ContentType.Valid)
+		}
+		if sub.ContentType.Valid {
+			s.Equal(sub.ContentType.String, ctSub)
+			s.False(sub.CollectionUID.Valid)
+		}
 	}
 }
 
 func (s *RestTestSuite) TestSubscribe_remove() {
-	items := s.createDummyLike(20)
+	items := s.createDummySubscriptions(20)
 	itemR1 := items[rand.Intn(10-1)+1]
 	itemR2 := items[rand.Intn(20-11)+11]
 	ids := &IDsRequest{IDs: []int64{itemR1.ID, itemR2.ID}}
 	cDel, _, err := testutil.PrepareContext(ids)
 	s.Require().Nil(err)
-	s.app.removeLikes(cDel, s.tx)
+	err = s.app.unsubscribe(cDel, s.tx)
+	s.Nil(err)
 
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 20})
-	var resp likesResponse
-	s.app.getLikes(c, s.tx)
+	var resp subscriptionsResponse
+	s.app.getSubscriptions(c, s.tx)
 	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(18, resp.Total, "total")
-	s.NotContains(resp.Likes, itemR1)
-	s.NotContains(resp.Likes, itemR2)
+	s.NotContains(resp.Subscriptions, itemR1)
+	s.NotContains(resp.Subscriptions, itemR2)
 }
 
 func (s *RestTestSuite) TestSubscribe_removeOtherAcc() {
-	items := s.createDummyLike(10)
+	items := s.createDummySubscriptions(10)
 
 	item := items[rand.Intn(10-1)+1]
 	item.AccountID = "new_account_id"
@@ -128,49 +138,36 @@ func (s *RestTestSuite) TestSubscribe_removeOtherAcc() {
 	ids := &IDsRequest{IDs: []int64{item.ID}}
 	cDel, _, err := testutil.PrepareContext(ids)
 	s.Require().Nil(err)
-	s.app.removeLikes(cDel, s.tx)
-	count, err := models.Likes().Count(s.tx)
+	err = s.app.unsubscribe(cDel, s.tx)
+	s.Require().Nil(err)
+	count, err := models.Subscriptions().Count(s.tx)
 	s.NoError(err)
 	s.Equal(int64(10), count)
 }
 
 //help functions
 
-func (s *RestTestSuite) createDummySubscriptions(n int64, name string) []*models.Subscription {
+func (s *RestTestSuite) createDummySubscriptions(n int) []*models.Subscription {
 	subs := make([]*models.Subscription, n)
 
-	for i, sub := range subs {
-		sub = &models.Subscription{
+	for i, _ := range subs {
+		subs[i] = &models.Subscription{
 			AccountID: testutil.KEYCKLOAK_ID,
 		}
 		if i%2 == 0 {
-			sub.CollectionUID = null.String{String: utils.GenerateUID(8), Valid: true}
+			subs[i].CollectionUID = null.String{String: utils.GenerateUID(8), Valid: true}
 		} else {
 			ct := consts.CT_SUBSCRIBE_BY_TYPE[rand.Int()%len(consts.CT_SUBSCRIBE_BY_TYPE)]
-			sub.ContentType = null.String{String: ct, Valid: true}
+			subs[i].ContentType = null.String{String: ct, Valid: true}
 		}
-		s.Nil(sub.Insert(s.tx, boil.Infer()))
-		units := make([]*models.PlaylistItem, rand.Int())
-		for i, u := range units {
-			u = &models.PlaylistItem{
-				PlaylistID:     sub.ID,
-				Position:       i,
-				ContentUnitUID: utils.GenerateUID(8),
-			}
-			s.Nil(u.Insert(s.tx, boil.Infer()))
-		}
+		s.Nil(subs[i].Insert(s.tx, boil.Infer()))
 	}
 	return subs
 }
 
-func (s *RestTestSuite) assertEqualSubscriptions(l *models.Playlist, x *models.Playlist, idx int) {
-	s.Equal(l.ID, x.ID, "playlist.ID [%d]", idx)
-	s.Equal(l.AccountID, x.AccountID, "playlist.AccountID [%d]", idx)
-	s.Equal(l.Name, x.Name, "playlist.Name [%d]", idx)
-	s.Equal(l.Public, x.Public, "playlist.Public [%d]", idx)
-
-	s.Len(x.R.PlaylistItems, len(l.R.PlaylistItems), "playlist.PlaylistItems len [%d]", idx)
-	for i, u := range l.R.PlaylistItems {
-		s.Equal(u, x.R.PlaylistItems[i], "playlist.PlaylistItem (item index %d) [%d]", idx, i)
-	}
+func (s *RestTestSuite) assertEqualSubscriptions(l *models.Subscription, x *models.Subscription) {
+	s.Equal(l.AccountID, x.AccountID)
+	s.Equal(l.ContentType, x.ContentType)
+	s.Equal(l.CollectionUID, x.CollectionUID)
+	s.Equal(l.ContentUnitUID, x.ContentUnitUID)
 }

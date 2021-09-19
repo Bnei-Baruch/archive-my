@@ -87,7 +87,7 @@ func (a *App) setupRoutes() error {
 	rest.DELETE("/playlist_items", a.handleDeleteFromPlaylist)
 	rest.GET("/likes", a.handleGetLikes)
 	rest.POST("/likes", a.handleAddLikes)
-	rest.DELETE("/likes", a.handleRemoveLikes)
+	rest.DELETE("/likes", a.handleDeleteLikes)
 	rest.GET("/subscriptions", a.handleGetSubscriptions)
 	rest.POST("/subscriptions", a.handleSubscribe)
 	rest.DELETE("/subscriptions", a.handleUnsubscribe)

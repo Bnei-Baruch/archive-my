@@ -38,7 +38,7 @@ func (s *RestTestSuite) TestPlaylist_simpleGet() {
 }
 
 func (s *RestTestSuite) TestPlaylist_diffAccounts() {
-	items := s.createDummyLike(10)
+	items := s.createDummyPlaylists(10, "Diff Accounts")
 
 	items[1].AccountID = "new_account_id"
 	_, err := items[1].Update(s.tx, boil.Whitelist("account_id"))
@@ -46,7 +46,7 @@ func (s *RestTestSuite) TestPlaylist_diffAccounts() {
 
 	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
 	s.Require().Nil(err)
-	s.app.getLikes(c, s.tx)
+	s.app.getPlaylists(c, s.tx)
 	var resp playlistsResponse
 	s.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
 	s.EqualValues(9, resp.Total, "total")
