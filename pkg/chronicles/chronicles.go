@@ -22,10 +22,10 @@ import (
 )
 
 const (
-	SCAN_SIZE     = 30
+	SCAN_SIZE     = 1000
 	MAX_INTERVAL  = time.Duration(time.Minute)
 	MIN_INTERVAL  = time.Duration(100 * time.Millisecond)
-	WAIT_FOR_SAVE = time.Duration(1 * time.Minute)
+	WAIT_FOR_SAVE = time.Duration(5 * time.Minute)
 )
 
 type Chronicles struct {
