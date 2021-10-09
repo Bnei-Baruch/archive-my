@@ -1,98 +1,106 @@
 package api
 
 import (
-	"context"
 	"database/sql"
+	"net/http"
 
-	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 	cors "github.com/rs/cors/wrapper/gin"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/rs/zerolog/log"
 
-	"github.com/Bnei-Baruch/archive-my/pkg/authutil"
+	"github.com/Bnei-Baruch/archive-my/common"
+	"github.com/Bnei-Baruch/archive-my/middleware"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type App struct {
-	DB       *sql.DB
-	Router   *gin.Engine
-	Verifier authutil.OIDCTokenVerifier
+	Router *gin.Engine
+	DB     *sql.DB
 }
 
-func (a *App) SetVerifier(verifier authutil.OIDCTokenVerifier) {
-	a.Verifier = verifier
+func (a *App) Initialize() {
+	log.Info().Msg("initializing app")
+
+	log.Info().Msg("Initializing token verifier")
+	verifier, err := middleware.NewFailoverOIDCTokenVerifier(common.Config.AccountsUrls)
+	utils.Must(err)
+
+	log.Info().Msg("Setting up connection to MyDB")
+	db, err := sql.Open("postgres", common.Config.MyDBUrl)
+	utils.Must(err)
+
+	a.InitializeWithDeps(db, verifier)
 }
 
-func (a *App) SetDB(db *sql.DB) {
+func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenVerifier) {
 	a.DB = db
-}
 
-func (a *App) InitDeps() {
-	log.Info("Initializing token verifier")
-	provider, err := oidc.NewProvider(context.TODO(), viper.GetString("app.issuer"))
-	utils.Must(err)
-	v := &authutil.FailoverOIDCTokenVerifier{}
-	v.SetVerifier(provider.Verifier(&oidc.Config{SkipClientIDCheck: true}))
-	a.Verifier = v
+	gin.SetMode(common.Config.GinMode)
+	a.Router = gin.Default()
 
-	log.Info("Setting up connection to DB")
-	a.DB, err = sql.Open("postgres", viper.GetString("app.mydb"))
-	utils.Must(err)
+	corsMiddleware := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		},
+		AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "Authorization", "X-Requested-With", "X-Request-ID"},
+		MaxAge:         3600,
+	})
+
+	// TODO: logging, rollbar, recovery, etc...
+	a.Router.Use(
+		corsMiddleware,
+		middleware.DataStoresMiddleware(a.DB))
+
+	a.initRoutes(tokenVerifier)
+	//a.initChronicles()
+	//a.initInstrumentation()
 }
 
 func (a *App) Run() {
-	defer func() {
-		log.Info("close connection to My DB")
-		utils.Must(a.DB.Close())
-	}()
+	defer a.Shutdown()
 
-	utils.Must(a.DB.Ping())
-	boil.DebugMode = viper.GetString("server.boiler-mode") == "debug"
-	boil.SetDB(a.DB)
-
-	utils.Must(a.setupRoutes())
+	addr := common.Config.ListenAddress
+	log.Info().Msgf("app run %s", addr)
+	if err := a.Router.Run(addr); err != nil {
+		log.Fatal().Err(err).Msg("Router.Run")
+	}
 }
 
-func (a *App) setupRoutes() error {
-	// Setup gin
-	gin.SetMode(viper.GetString("server.mode"))
-	router := gin.Default()
-
-	// cors
-	opt := cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PATCH", "HEAD", "OPTIONS", "DELETE"},
-		AllowedHeaders: []string{"Origin", "Authorization", "Accept", "Content-Type", "X-Requested-With", "X-Request-ID"},
+func (a *App) Shutdown() {
+	if err := a.DB.Close(); err != nil {
+		log.Error().Err(err).Msg("DB.close")
 	}
-	router.Use(cors.New(opt))
-	//router.Use(cors.Default())
+}
 
-	router.GET("/health_check", a.HealthCheckHandler)
-	router.GET("/like_count", a.handleLikeCount)
+func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
+	a.Router.GET("/health_check", a.HealthCheckHandler)
+	a.Router.GET("/like_count", a.handleLikeCount)
+	// TODO: public endpoint for public playlists (get by UID) string all internal IDs
 
-	rest := router.Group("/rest")
-	rest.Use(authutil.AuthenticationMiddleware(a.Verifier))
+	rest := a.Router.Group("/rest")
+	rest.Use(middleware.AuthenticationMiddleware(verifier))
 
 	rest.GET("/playlists", a.handleGetPlaylists)
 	rest.POST("/playlists", a.handleCreatePlaylist)
-	rest.DELETE("/playlists", a.handleDeletePlaylist)
 	rest.GET("/playlists/:id", a.handleGetPlaylist)
-	rest.PATCH("/playlists/:id", a.handleUpdatePlaylist)
-	rest.POST("/playlists/:id", a.handleAddToPlaylist)
-	rest.GET("/playlist_items", a.handleGetPlaylistItems)
-	rest.PATCH("/playlist_items/:id", a.handleUpdatePlaylistItems)
-	rest.DELETE("/playlist_items", a.handleDeleteFromPlaylist)
-	rest.GET("/likes", a.handleGetLikes)
-	rest.POST("/likes", a.handleAddLikes)
-	rest.DELETE("/likes", a.handleRemoveLikes)
+	rest.PUT("/playlists/:id", a.handleUpdatePlaylist)
+	rest.DELETE("/playlists/:id", a.handleDeletePlaylist)
+	rest.POST("/playlists/:id/items", a.handleAddToPlaylist)
+	rest.PUT("/playlist/:playlist_id/items/:id", a.handleUpdatePlaylistItems)
+	rest.DELETE("/playlist/:playlist_id/items/:id", a.handleDeleteFromPlaylist)
+	rest.GET("/reactions", a.handleGetReactions)
+	rest.POST("/reactions", a.handleAddReactions)
+	rest.DELETE("/reactions", a.handleRemoveReactions)
 	rest.GET("/subscriptions", a.handleGetSubscriptions)
 	rest.POST("/subscriptions", a.handleSubscribe)
-	rest.DELETE("/subscriptions", a.handleUnsubscribe)
+	rest.DELETE("/subscriptions/:id", a.handleUnsubscribe)
 	rest.GET("/history", a.handleGetHistory)
-	rest.DELETE("/history", a.handleDeleteHistory)
-
-	return router.Run(viper.GetString("server.bind-address"))
+	rest.DELETE("/history/:id", a.handleDeleteHistory)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/Bnei-Baruch/archive-my/pkg/testutil"
-	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type ChroniclesScanTestSuite struct {
@@ -21,9 +20,8 @@ type ChroniclesScanTestSuite struct {
 }
 
 func (s *ChroniclesScanTestSuite) SetupSuite() {
-	s.NoError(utils.InitConfig("", "../../"))
 	dbS, mdbS, err := s.InitTestDB()
-	s.Require().Nil(err)
+	s.Require().NoError(err)
 	s.Nil(s.DB.Close())
 	s.Nil(s.MDB.Close())
 	s.chr = new(Chronicles)
@@ -46,7 +44,7 @@ func (s *ChroniclesScanTestSuite) SetupTest() {
 
 func (s *ChroniclesScanTestSuite) TearDownTest() {
 	err := s.tx.Rollback()
-	s.Require().Nil(err)
+	s.Require().NoError(err)
 	s.chr.Stop()
 }
 

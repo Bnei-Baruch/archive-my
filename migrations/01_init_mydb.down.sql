@@ -1,25 +1,22 @@
-BEGIN;
-
 DROP
-INDEX IF EXISTS playlist_account_id_idx;
+    INDEX IF EXISTS playlists_user_id_idx;
 DROP
-INDEX IF EXISTS playlist_item_playlist_id_idx;
+    INDEX IF EXISTS playlist_item_playlist_id_idx;
 DROP
-INDEX IF EXISTS likes_account_id_idx;
+    INDEX IF EXISTS reactions_user_id_idx;
 DROP
-INDEX IF EXISTS subscriptions_account_id_idx;
+    INDEX IF EXISTS reactions_subject_idx;
 DROP
-INDEX IF EXISTS history_account_id_idx;
+    INDEX IF EXISTS subscriptions_user_id_idx;
 DROP
-INDEX IF EXISTS history_created_at_idx;
+    INDEX IF EXISTS history_user_id_idx;
 DROP
-INDEX IF EXISTS history_account_id_content_unit_uid_created_at_idx;
+    INDEX IF EXISTS history_content_unit_uid_idx;
 
 
-DROP TABLE IF EXISTS playlist;
-DROP TABLE IF EXISTS playlist_item;
-DROP TABLE IF EXISTS likes;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS playlists;
+DROP TABLE IF EXISTS playlist_items;
+DROP TABLE IF EXISTS reactions;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS history;
-DROP FUNCTION IF EXISTS now_utc();
-COMMIT;

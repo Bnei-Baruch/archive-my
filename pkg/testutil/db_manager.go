@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -13,141 +14,184 @@ import (
 	"github.com/golang-migrate/migrate/database/postgres"
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/lib/pq"
-	"github.com/spf13/viper"
+	pkgerr "github.com/pkg/errors"
 	_ "github.com/stretchr/testify"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 	"gopkg.in/khaiql/dbcleaner.v2"
 	"gopkg.in/khaiql/dbcleaner.v2/engine"
 
+	"github.com/Bnei-Baruch/archive-my/common"
 	migrations "github.com/Bnei-Baruch/archive-my/mdb_migrations"
+	"github.com/Bnei-Baruch/archive-my/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
-type TestDBManager struct {
+type TestMyDBManager struct {
 	DB        *sql.DB
-	MDB       *sql.DB
-	testDB    string
-	testMDB   string
+	Name      string
+	DSN       string
 	DBCleaner dbcleaner.DbCleaner
 }
 
-func (m *TestDBManager) InitTestDB() (string, string, error) {
-	//boil.DebugMode = true
+func (m *TestMyDBManager) Init() error {
+	boil.DebugMode = true
 
-	m.DBCleaner = dbcleaner.New()
-	var mdbDs string
-	var dbDs string
-	if db, dsn, name, err := m.initDB(false); err != nil {
-		return "", "", err
-	} else {
-		m.DB = db
-		m.testDB = name
-		dbDs = dsn
-	}
+	m.Name = fmt.Sprintf("test_%s", strings.ToLower(utils.GenerateName(5)))
+	fmt.Println("Initializing test MyDB: ", m.Name)
 
-	if db, dsn, name, err := m.initDB(true); err != nil {
-		return "", "", err
-	} else {
-		m.MDB = db
-		m.testMDB = name
-		mdbDs = dsn
-	}
-
-	return dbDs, mdbDs, nil
-}
-
-func (m *TestDBManager) initDB(isMDB bool) (*sql.DB, string, string, error) {
-	//boil.DebugMode = true
-	prefix := ""
-	if isMDB {
-		prefix = "_mdb"
-	}
-	name := fmt.Sprintf("test%s_%s", prefix, strings.ToLower(utils.GenerateName(5)))
-	fmt.Println("Initializing test DB: ", name)
 	// Open connection
-	db, err := sql.Open("postgres", viper.GetString("app.mydb"))
+	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	if err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "sql.Open")
 	}
 
 	// Create a new temporary test database
-	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s", name)); err != nil {
-		return nil, "", "", err
+	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "create database")
 	}
 
 	// Close first connection
 	if err := db.Close(); err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "db.Close")
 	}
 
 	// Connect to temp database and run migrations
-	ds := viper.GetString("app.mydb")
-	if isMDB {
-		ds = viper.GetString("app.mdb")
-	}
-	dsn, err := m.replaceDBName(name, ds)
+	m.DSN, err = replaceDBName(m.Name, common.Config.MyDBUrl)
 	if err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "replaceDBName")
 	}
 
-	if !isMDB {
-		if err := m.runMigrations(dsn); err != nil {
-			return nil, "", "", err
-		}
+	if err := runMigrate(m.DSN); err != nil {
+		return pkgerr.Wrap(err, "run migrations")
 	}
 
-	db, err = sql.Open("postgres", dsn)
+	m.DB, err = sql.Open("postgres", m.DSN)
 	if err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "sql.Open temporary DB")
 	}
 
-	if isMDB {
-		if err := m.runMDBMigrations(db); err != nil {
-			return nil, "", "", err
-		}
-	}
-	m.DBCleaner.SetEngine(engine.NewPostgresEngine(dsn))
+	m.DBCleaner = dbcleaner.New()
+	m.DBCleaner.SetEngine(engine.NewPostgresEngine(m.DSN))
 
-	return db, dsn, name, nil
+	return nil
 }
 
-func (m *TestDBManager) DestroyTestDB() error {
-	fmt.Println("Destroying testDB: ", m.testDB)
+func (m *TestMyDBManager) Destroy() error {
+	fmt.Println("Destroying test MyDB: ", m.Name)
 
 	// Close DB cleaner
 	if err := m.DBCleaner.Close(); err != nil {
-		return err
+		return pkgerr.Wrap(err, "DBCleaner.Close")
 	}
-
-	if err := m.destroyDB(m.DB, m.testDB); err != nil {
-		return err
-	}
-	return m.destroyDB(m.MDB, m.testMDB)
-}
-
-func (m *TestDBManager) destroyDB(db *sql.DB, name string) error {
-	fmt.Println("Destroying testDB: ", name)
 
 	// Close temp DB
-	if err := db.Close(); err != nil {
-		return err
+	if err := m.DB.Close(); err != nil {
+		return pkgerr.Wrap(err, "DB.Close")
 	}
 
 	// Connect to main dev DB
-	db, err := sql.Open("postgres", viper.GetString("app.mydb"))
+	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	if err != nil {
-		return err
+		return pkgerr.Wrap(err, "sql.Open dev DB")
 	}
 
 	// Drop test DB
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE %s", name))
-	if err != nil {
-		return err
+	if _, err = db.Exec(fmt.Sprintf("DROP DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "drop database")
 	}
 
 	return nil
 }
 
-func (m *TestDBManager) runMigrations(dsn string) error {
+func (m *TestMyDBManager) AllTables() []string {
+	v := reflect.ValueOf(models.TableNames)
+	t := v.Type()
+	tables := make([]string, 0)
+	for i := 0; i < t.NumField(); i++ {
+		name := t.Field(i).Name
+		value := v.FieldByName(name).Interface()
+		if value.(string) != models.TableNames.SchemaMigrations {
+			tables = append(tables, value.(string))
+		}
+	}
+	return tables
+}
+
+type TestMDBManager struct {
+	DB        *sql.DB
+	Name      string
+	DSN       string
+	DBCleaner dbcleaner.DbCleaner
+}
+
+func (m *TestMDBManager) Init() error {
+	m.Name = fmt.Sprintf("test_mdb_%s", strings.ToLower(utils.GenerateName(5)))
+	fmt.Println("Initializing test DB [mdb]: ", m.Name)
+
+	// Open connection
+	db, err := sql.Open("postgres", common.Config.MDBUrl)
+	if err != nil {
+		return pkgerr.Wrap(err, "sql.Open")
+	}
+
+	// Create a new temporary test database
+	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "create database")
+	}
+
+	// Close first connection
+	if err := db.Close(); err != nil {
+		return pkgerr.Wrap(err, "db.Close")
+	}
+
+	// Connect to temp database and run migrations
+	m.DSN, err = replaceDBName(m.Name, common.Config.MDBUrl)
+	if err != nil {
+		return pkgerr.Wrap(err, "replaceDBName")
+	}
+
+	m.DB, err = sql.Open("postgres", m.DSN)
+	if err != nil {
+		return pkgerr.Wrap(err, "sql.Open temporary DB")
+	}
+
+	if err := runRambler(m.DB); err != nil {
+		return pkgerr.Wrap(err, "run migrations")
+	}
+
+	m.DBCleaner.SetEngine(engine.NewPostgresEngine(m.DSN))
+
+	return nil
+}
+
+func (m *TestMDBManager) Destroy() error {
+	fmt.Println("Destroying test MDB: ", m.Name)
+
+	// Close DB cleaner
+	if err := m.DBCleaner.Close(); err != nil {
+		return pkgerr.Wrap(err, "DBCleaner.Close")
+	}
+
+	// Close temp DB
+	if err := m.DB.Close(); err != nil {
+		return pkgerr.Wrap(err, "DB.Close")
+	}
+
+	// Connect to main dev DB
+	db, err := sql.Open("postgres", common.Config.MDBUrl)
+	if err != nil {
+		return pkgerr.Wrap(err, "sql.Open dev DB")
+	}
+
+	// Drop test DB
+	if _, err = db.Exec(fmt.Sprintf("DROP DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "drop database")
+	}
+
+	return nil
+}
+
+func runMigrate(dsn string) error {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return err
@@ -180,27 +224,7 @@ func (m *TestDBManager) runMigrations(dsn string) error {
 	return nil
 }
 
-func (m *TestDBManager) replaceDBName(tempName, dbStr string) (string, error) {
-	paramsStr, err := pq.ParseURL(dbStr)
-	if err != nil {
-		return "", err
-	}
-	params := strings.Split(paramsStr, " ")
-	found := false
-	for i := range params {
-		if strings.HasPrefix(params[i], "dbname") {
-			params[i] = fmt.Sprintf("dbname=%s", tempName)
-			found = true
-			break
-		}
-	}
-	if !found {
-		params = append(params, fmt.Sprintf("dbname=%s", tempName))
-	}
-	return strings.Join(params, " "), nil
-}
-
-func (m *TestDBManager) runMDBMigrations(db *sql.DB) error {
+func runRambler(db *sql.DB) error {
 	var visit = func(path string, f os.FileInfo, err error) error {
 		match, _ := regexp.MatchString(".*\\.sql$", path)
 		if !match {
@@ -226,4 +250,24 @@ func (m *TestDBManager) runMDBMigrations(db *sql.DB) error {
 	_, filename, _, _ := runtime.Caller(0)
 	rel := filepath.Join(filepath.Dir(filename), "..", "..", "mdb_migrations")
 	return filepath.Walk(rel, visit)
+}
+
+func replaceDBName(tempName, dbStr string) (string, error) {
+	paramsStr, err := pq.ParseURL(dbStr)
+	if err != nil {
+		return "", err
+	}
+	params := strings.Split(paramsStr, " ")
+	found := false
+	for i := range params {
+		if strings.HasPrefix(params[i], "dbname") {
+			params[i] = fmt.Sprintf("dbname=%s", tempName)
+			found = true
+			break
+		}
+	}
+	if !found {
+		params = append(params, fmt.Sprintf("dbname=%s", tempName))
+	}
+	return strings.Join(params, " "), nil
 }

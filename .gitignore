@@ -2,14 +2,14 @@
 .logs/
 .vscode
 
+.env
 *.swp
+*.swo
+*.swn
 *.log
-config.toml
-sqlboiler.toml
-mydb-sqlboiler.toml
+
 **/rambler.json
 *.dump.sql
 _vendor-*/
 
 archive-my
-

@@ -1,4 +1,4 @@
-package api
+package errs
 
 import (
 	"net/http"
@@ -24,17 +24,22 @@ func NewHttpError(code int, err error, t gin.ErrorType) *HttpError {
 	return &HttpError{Code: code, Err: err, Type: t}
 }
 
-func NewNotFoundError() *HttpError {
-	return &HttpError{Code: http.StatusNotFound, Type: gin.ErrorTypePublic}
+func NewNotFoundError(err error) *HttpError {
+	return NewHttpError(http.StatusNotFound, err, gin.ErrorTypePublic)
 }
 
 func NewBadRequestError(err error) *HttpError {
 	return NewHttpError(http.StatusBadRequest, err, gin.ErrorTypePublic)
 }
 
+func NewUnauthorizedError(err error) *HttpError {
+	return NewHttpError(http.StatusUnauthorized, err, gin.ErrorTypePublic)
+}
+
+func NewForbiddenError(err error) *HttpError {
+	return NewHttpError(http.StatusForbidden, err, gin.ErrorTypePublic)
+}
+
 func NewInternalError(err error) *HttpError {
-	if err == nil {
-		return nil
-	}
 	return NewHttpError(http.StatusInternalServerError, err, gin.ErrorTypePrivate)
 }

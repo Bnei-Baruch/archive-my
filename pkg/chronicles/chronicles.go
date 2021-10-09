@@ -11,23 +11,23 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
+	"github.com/Bnei-Baruch/archive-my/common"
 	"github.com/Bnei-Baruch/archive-my/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 const (
 	SCAN_SIZE                 = 1000
-	MAX_INTERVAL              = time.Duration(time.Minute)
-	MIN_INTERVAL              = time.Duration(100 * time.Millisecond)
+	MAX_INTERVAL              = time.Minute
+	MIN_INTERVAL              = 100 * time.Millisecond
 	CR_EVENT_TYPE_PLAYER_PLAY = "player-play"
 	CR_EVENT_TYPE_PLAYER_STOP = "player-stop"
-	WAIT_FOR_SAVE             = time.Duration(5 * time.Minute)
+	WAIT_FOR_SAVE             = 5 * time.Minute
 )
 
 type Chronicles struct {
@@ -73,12 +73,12 @@ type ChronicleEventData struct {
 
 func (c *Chronicles) Init(dbstr, mdbstr string, client *http.Client) {
 	if dbstr == "" {
-		dbstr = viper.GetString("app.mydb")
+		dbstr = common.Config.MyDBUrl
 	}
 	c.DBstr = dbstr
 
 	if mdbstr == "" {
-		mdbstr = viper.GetString("app.mdb")
+		mdbstr = common.Config.MDBUrl
 	}
 	c.MDBstr = mdbstr
 
@@ -147,9 +147,9 @@ func (c *Chronicles) refresh() error {
 		return err
 	}
 	if len(entries) == SCAN_SIZE {
-		c.interval = maxDuration(c.interval/2, MIN_INTERVAL)
+		c.interval = utils.MaxDuration(c.interval/2, MIN_INTERVAL)
 	} else {
-		c.interval = minDuration(c.interval*2, MAX_INTERVAL)
+		c.interval = utils.MinDuration(c.interval*2, MAX_INTERVAL)
 	}
 	c.ticker.Reset(c.interval)
 	return nil
@@ -158,7 +158,7 @@ func (c *Chronicles) refresh() error {
 func (c *Chronicles) scanEvents() ([]*ChronicleEvent, error) {
 	log.Infof("Scanning chronicles entries, last successfull [%s]", c.lastReadId)
 	b := bytes.NewBuffer([]byte(fmt.Sprintf(`{"id":"%s","limit":%d, "event_types": ["player-play", "player-stop"], "namespaces": ["archive"]}`, c.lastReadId, SCAN_SIZE)))
-	resp, err := c.httpClient.Post(viper.GetString("app.scan_url"), "application/json", b)
+	resp, err := c.httpClient.Post(common.Config.ChroniclesUrl, "application/json", b)
 	if err != nil {
 		return nil, err
 	}
@@ -246,6 +246,10 @@ func (c *Chronicles) saveEvents(events []*ChronicleEvent) error {
 }
 
 func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) error {
+	// TODO: skip events for anonymous users (nothing in users table)
+	// for first time login users, we might be able to associate some of their anonymous history
+	// with another dedicated scan of chronicles. (future milestone)
+
 	var data map[string]interface{}
 	if err := json.Unmarshal(ev.Data.JSON, &data); err != nil {
 		return err
@@ -280,7 +284,7 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) er
 	).One(tx)
 	if errDB == sql.ErrNoRows {
 		h = &models.History{
-			AccountID:      ev.AccountId[0:36],
+			//AccountID:      ev.AccountId[0:36], //TODO: user models.User
 			ChronicleID:    ev.ID,
 			ContentUnitUID: null.String{String: unitUID, Valid: true},
 			Data:           null.JSON{JSON: j, Valid: true},
@@ -291,7 +295,7 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, mdb *sql.DB, ev *ChronicleEvent) er
 		return err
 	}
 
-	params, err := margeData(h.Data, nParams)
+	params, err := mergeData(h.Data, nParams)
 	if err != nil {
 		return err
 	}
@@ -368,7 +372,7 @@ func (c *Chronicles) updateSubscriptions(tx *sql.Tx, mdb *sql.DB, ev *ChronicleE
 	return err
 }
 
-func margeData(data null.JSON, nd map[string]interface{}) (*null.JSON, error) {
+func mergeData(data null.JSON, nd map[string]interface{}) (*null.JSON, error) {
 	var d map[string]interface{}
 	if err := json.Unmarshal(data.JSON, &d); err != nil {
 		return nil, err
@@ -382,18 +386,4 @@ func margeData(data null.JSON, nd map[string]interface{}) (*null.JSON, error) {
 		return nil, err
 	}
 	return &null.JSON{JSON: dStr}, nil
-}
-
-func minDuration(x, y time.Duration) time.Duration {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func maxDuration(x, y time.Duration) time.Duration {
-	if x >= y {
-		return x
-	}
-	return y
 }

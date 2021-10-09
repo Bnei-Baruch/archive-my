@@ -4,19 +4,20 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/subosito/gotenv"
 
-	"github.com/Bnei-Baruch/archive-my/pkg/utils"
+	"github.com/Bnei-Baruch/archive-my/common"
 )
 
-var cfgFile string
-
 var rootCmd = &cobra.Command{
-	Use:   "my-archive-api",
+	Use:   "archive-my",
 	Short: "Personal data on archive",
 	Long:  `Backend API for personal information of archive`,
+}
+
+func init() {
+	cobra.OnInitialize(initConfig)
 }
 
 func Execute() {
@@ -25,13 +26,8 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-func init() {
-	cobra.OnInitialize(InitConfig)
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is config.toml)")
-}
 
-func InitConfig() {
-	if err := utils.InitConfig(cfgFile, ""); err != nil {
-		panic(errors.Wrapf(err, "Could not read config, using: %s", viper.ConfigFileUsed()))
-	}
+func initConfig() {
+	gotenv.Load()
+	common.Init()
 }

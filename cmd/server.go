@@ -19,8 +19,10 @@ func init() {
 
 func serverFn(cmd *cobra.Command, args []string) {
 	a := new(api.App)
-	a.InitDeps()
+	a.Initialize()
+	a.Run()
+
+	// TODO: singleton comment + put inside App initialization
 	chr := new(chronicles.Chronicles)
 	chr.Run()
-	a.Run()
 }
