@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"math/rand"
 
 	"github.com/stretchr/testify/suite"
@@ -28,7 +29,7 @@ func (s *ModelsSuite) CreateUser() *models.User {
 	return user
 }
 
-func (s *ModelsSuite) CreatePlaylist(user *models.User, name string) *models.Playlist {
+func (s *ModelsSuite) CreatePlaylist(user *models.User, name string, props map[string]interface{}) *models.Playlist {
 	uid, err := GetFreeUID(s.MyDB.DB, new(PlaylistUIDChecker))
 	s.Require().NoError(err, "get free UID")
 
@@ -37,16 +38,26 @@ func (s *ModelsSuite) CreatePlaylist(user *models.User, name string) *models.Pla
 		UID:    uid,
 		Name:   null.StringFrom(name),
 	}
+	if len(props) > 0 {
+		propsJson, err := json.Marshal(props)
+		s.Require().NoError(err)
+		playlist.Properties = null.JSONFrom(propsJson)
+	}
+
 	s.Require().NoError(playlist.Insert(s.MyDB.DB, boil.Infer()))
 
-	items := make([]*models.PlaylistItem, rand.Intn(20)+1)
+	s.AddPlaylistItems(playlist, rand.Intn(20)+1)
+
+	return playlist
+}
+
+func (s *ModelsSuite) AddPlaylistItems(playlist *models.Playlist, n int) {
+	items := make([]*models.PlaylistItem, n)
 	for i := range items {
 		items[i] = &models.PlaylistItem{
 			Position:       i,
 			ContentUnitUID: utils.GenerateUID(8),
 		}
 	}
-	s.NoError(playlist.AddPlaylistItems(s.MyDB.DB, true, items...))
-
-	return playlist
+	s.Require().NoError(playlist.AddPlaylistItems(s.MyDB.DB, true, items...))
 }

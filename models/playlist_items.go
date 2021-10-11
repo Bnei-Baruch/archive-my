@@ -114,8 +114,8 @@ type playlistItemL struct{}
 
 var (
 	playlistItemAllColumns            = []string{"id", "playlist_id", "position", "content_unit_uid"}
-	playlistItemColumnsWithoutDefault = []string{"playlist_id", "content_unit_uid"}
-	playlistItemColumnsWithDefault    = []string{"id", "position"}
+	playlistItemColumnsWithoutDefault = []string{"playlist_id", "position", "content_unit_uid"}
+	playlistItemColumnsWithDefault    = []string{"id"}
 	playlistItemPrimaryKeyColumns     = []string{"id"}
 )
 

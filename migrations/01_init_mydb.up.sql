@@ -35,7 +35,7 @@ CREATE TABLE playlist_items
 (
     id               BIGSERIAL PRIMARY KEY,
     playlist_id      BIGINT REFERENCES playlists ON DELETE CASCADE NOT NULL,
-    position         SERIAL,
+    position         INTEGER                                       NOT NULL,
     content_unit_uid CHAR(8)                                       NOT NULL
 );
 

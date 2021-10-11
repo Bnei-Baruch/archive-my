@@ -92,9 +92,13 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest.GET("/playlists/:id", a.handleGetPlaylist)
 	rest.PUT("/playlists/:id", a.handleUpdatePlaylist)
 	rest.DELETE("/playlists/:id", a.handleDeletePlaylist)
-	rest.POST("/playlists/:id/items", a.handleAddToPlaylist)
-	rest.PUT("/playlist/:playlist_id/items/:id", a.handleUpdatePlaylistItems)
-	rest.DELETE("/playlist/:playlist_id/items/:id", a.handleDeleteFromPlaylist)
+
+	// These would have been more "restful" had gin router support it ...
+	rest.POST("/playlists/:id/add_items", a.handleAddPlaylistItems)
+	rest.PUT("/playlists/:id/update_items", a.handleUpdatePlaylistItems)
+	rest.DELETE("/playlists/:id/remove_items", a.handleRemovePlaylistItems)
+	// end gin router rants
+
 	rest.GET("/reactions", a.handleGetReactions)
 	rest.POST("/reactions", a.handleAddReactions)
 	rest.DELETE("/reactions", a.handleRemoveReactions)

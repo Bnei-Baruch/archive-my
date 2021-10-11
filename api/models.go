@@ -46,13 +46,26 @@ type PlaylistRequest struct {
 	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
-type AddPlaylistItemsRequest struct {
-	UIDs []string `json:"uids" binding:"required,dive,len=8"`
-}
-
-type UpdatePlaylistItemRequest struct {
+type PlaylistItemAddInfo struct {
 	Position       int    `json:"position" binding:"required"`
 	ContentUnitUID string `json:"content_unit_uid" binding:"required,len=8"`
+}
+
+type AddPlaylistItemsRequest struct {
+	Items []PlaylistItemAddInfo `json:"items" binding:"required,dive"`
+}
+
+type PlaylistItemUpdateInfo struct {
+	PlaylistItemAddInfo
+	ID int64 `json:"id" binding:"omitempty"`
+}
+
+type UpdatePlaylistItemsRequest struct {
+	Items []PlaylistItemUpdateInfo `json:"items" binding:"required,dive"`
+}
+
+type RemovePlaylistItemsRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
 }
 
 type GetReactionsRequest struct {

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -214,6 +215,7 @@ func (a *App) handleUpdatePlaylist(c *gin.Context) {
 		return
 	}
 
+	var resp interface{}
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
 		playlist, err := models.FindPlaylist(tx, id)
@@ -246,11 +248,16 @@ func (a *App) handleUpdatePlaylist(c *gin.Context) {
 		_, err = playlist.Update(tx, boil.Whitelist(models.PlaylistColumns.Name,
 			models.PlaylistColumns.Public,
 			models.PlaylistColumns.Properties))
+		if err != nil {
+			return pkgerr.Wrap(err, "update DB")
+		}
 
-		return err
+		resp = makePlaylistDTO(playlist)
+
+		return nil
 	})
 
-	concludeRequest(c, nil, err)
+	concludeRequest(c, resp, err)
 }
 
 func (a *App) handleDeletePlaylist(c *gin.Context) {
@@ -289,7 +296,7 @@ func (a *App) handleDeletePlaylist(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-func (a *App) handleAddToPlaylist(c *gin.Context) {
+func (a *App) handleAddPlaylistItems(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
 		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
@@ -321,20 +328,30 @@ func (a *App) handleAddToPlaylist(c *gin.Context) {
 			return errs.NewNotFoundError(errors.New("owner mismatch"))
 		}
 
-		items := make([]*models.PlaylistItem, len(r.UIDs))
-		for i, uid := range r.UIDs {
-			items[i] = &models.PlaylistItem{ContentUnitUID: uid}
+		items := make([]*models.PlaylistItem, len(r.Items))
+		for i, item := range r.Items {
+			items[i] = &models.PlaylistItem{
+				Position:       item.Position,
+				ContentUnitUID: item.ContentUnitUID,
+			}
 		}
+
+		// enforce max playlist length
+		total, err := models.PlaylistItems(models.PlaylistItemWhere.PlaylistID.EQ(id)).Count(tx)
+		if err != nil {
+			return pkgerr.Wrap(err, "count items in db")
+		}
+		if int(total)+len(items) > MaxPlaylistSize {
+			return errs.NewBadRequestError(fmt.Errorf("max playlist size is %d", MaxPlaylistSize))
+		}
+
 		if err := playlist.AddPlaylistItems(tx, true, items...); err != nil {
 			return pkgerr.Wrap(err, "insert items to db")
 		}
 
-		// TODO: enforce max playlist length
-
-		if err := playlist.L.LoadPlaylistItems(tx, false, &playlist, nil); err != nil {
+		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
 			return pkgerr.Wrap(err, "reload playlist items from db")
 		}
-
 		resp = makePlaylistDTO(playlist)
 
 		return nil
@@ -344,19 +361,13 @@ func (a *App) handleAddToPlaylist(c *gin.Context) {
 }
 
 func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
-	playlistID, err := strconv.ParseInt(c.Param("playlist_id"), 10, 0)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		errs.NewBadRequestError(pkgerr.Wrap(err, "playlist_id expects int64")).Abort(c)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
 		return
 	}
 
-	itemID, err := strconv.ParseInt(c.Param("id"), 10, 0)
-	if err != nil {
-		errs.NewBadRequestError(pkgerr.Wrap(err, "item_id expects int64")).Abort(c)
-		return
-	}
-
-	var r UpdatePlaylistItemRequest
+	var r UpdatePlaylistItemsRequest
 	if c.BindJSON(&r) != nil {
 		return
 	}
@@ -370,7 +381,7 @@ func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 	var resp interface{}
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		playlist, err := models.FindPlaylist(tx, playlistID)
+		playlist, err := models.FindPlaylist(tx, id)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				return pkgerr.Wrap(err, "fetch playlist from db")
@@ -381,28 +392,29 @@ func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 			return errs.NewNotFoundError(errors.New("owner mismatch"))
 		}
 
-		item, err := models.FindPlaylistItem(tx, itemID)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return pkgerr.Wrap(err, "fetch playlist item from db")
+		for _, itemInfo := range r.Items {
+			item, err := models.FindPlaylistItem(tx, itemInfo.ID)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return pkgerr.Wrap(err, "fetch playlist item from db")
+				}
+				return errs.NewNotFoundError(err)
 			}
-			return errs.NewNotFoundError(err)
-		}
-		if playlist.ID != item.PlaylistID {
-			return errs.NewNotFoundError(errors.New("parent playlist mismatch"))
+			if playlist.ID != item.PlaylistID {
+				return errs.NewNotFoundError(errors.New("parent playlist mismatch"))
+			}
+
+			item.Position = itemInfo.Position
+			item.ContentUnitUID = itemInfo.ContentUnitUID
+			if _, err := item.Update(tx, boil.Whitelist(models.PlaylistItemColumns.Position,
+				models.PlaylistItemColumns.ContentUnitUID)); err != nil {
+				return pkgerr.Wrap(err, "update playlist item in db")
+			}
 		}
 
-		item.Position = r.Position
-		item.ContentUnitUID = r.ContentUnitUID
-		if _, err := item.Update(tx, boil.Whitelist(models.PlaylistItemColumns.Position,
-			models.PlaylistItemColumns.ContentUnitUID)); err != nil {
-			return pkgerr.Wrap(err, "update playlist item in db")
-		}
-
-		if err := playlist.L.LoadPlaylistItems(tx, false, &playlist, nil); err != nil {
+		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
 			return pkgerr.Wrap(err, "reload playlist items from db")
 		}
-
 		resp = makePlaylistDTO(playlist)
 
 		return nil
@@ -411,16 +423,15 @@ func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 	concludeRequest(c, resp, err)
 }
 
-func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
-	playlistID, err := strconv.ParseInt(c.Param("playlist_id"), 10, 0)
+func (a *App) handleRemovePlaylistItems(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		errs.NewBadRequestError(pkgerr.Wrap(err, "playlist_id expects int64")).Abort(c)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
 		return
 	}
 
-	itemID, err := strconv.ParseInt(c.Param("id"), 10, 0)
-	if err != nil {
-		errs.NewBadRequestError(pkgerr.Wrap(err, "item_id expects int64")).Abort(c)
+	var r RemovePlaylistItemsRequest
+	if c.BindJSON(&r) != nil {
 		return
 	}
 
@@ -430,9 +441,10 @@ func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
 		return
 	}
 
+	var resp interface{}
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		playlist, err := models.FindPlaylist(tx, playlistID)
+		playlist, err := models.FindPlaylist(tx, id)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				return pkgerr.Wrap(err, "fetch playlist from db")
@@ -443,25 +455,32 @@ func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
 			return errs.NewNotFoundError(errors.New("owner mismatch"))
 		}
 
-		item, err := models.FindPlaylistItem(tx, itemID)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return pkgerr.Wrap(err, "fetch playlist item from db")
+		for _, itemID := range r.IDs {
+			item, err := models.FindPlaylistItem(tx, itemID)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return pkgerr.Wrap(err, "fetch playlist item from db")
+				}
+				return errs.NewNotFoundError(err)
 			}
-			return errs.NewNotFoundError(err)
-		}
-		if playlist.ID != item.PlaylistID {
-			return errs.NewNotFoundError(errors.New("parent playlist mismatch"))
+			if playlist.ID != item.PlaylistID {
+				return errs.NewNotFoundError(errors.New("parent playlist mismatch"))
+			}
+
+			if _, err := item.Delete(tx); err != nil {
+				return pkgerr.Wrap(err, "delete playlist item from db")
+			}
 		}
 
-		if _, err := item.Delete(tx); err != nil {
-			return pkgerr.Wrap(err, "delete playlist item from db")
+		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
+			return pkgerr.Wrap(err, "reload playlist items from db")
 		}
+		resp = makePlaylistDTO(playlist)
 
 		return nil
 	})
 
-	concludeRequest(c, nil, err)
+	concludeRequest(c, resp, err)
 }
 
 // Reactions handlers
