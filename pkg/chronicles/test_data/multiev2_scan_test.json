@@ -1,0 +1,84 @@
+{
+  "entries": [
+    {
+      "id": "1o2lpjB7KfEYfIQWETj9zmqSEYJ",
+      "created_at": "2021-02-05T02:39:10.678869Z",
+      "user_id": "%[1]s",
+      "ip_addr": "82.166.178.93",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+      "namespace": "archive",
+      "client_event_id": "01EXR0X5K0CFBXMCCQ9KJ3WYCW",
+      "client_event_type": "player-play",
+      "client_flow_id": "01EXR0T3BE48D6ZMPCAB9TKM98",
+      "client_flow_type": "unit-page-enter",
+      "client_session_id": "local:01EXR0T3BD5N1RGSY195KARJEF",
+      "data": {
+        "duration": 7288.086,
+        "file_src": "https://cdn.kabbalahmedia.info/QsiJUAPa.mp4",
+        "location": "http://bbdev6.kbb1.com:5501/lessons/cu/HzuBd1Jj",
+        "unit_uid": "%[4]s",
+        "current_time": 1000
+      }
+    },
+    {
+      "id": "1o2lqBgUCkVfXzAmq1HND2x2222",
+      "created_at": "2021-02-05T02:39:14.120073Z",
+      "user_id": "%[1]s",
+      "ip_addr": "82.166.178.93",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+      "namespace": "archive",
+      "client_event_id": "01EXR0X8YKGZ43XHBBHNH7D15A",
+      "client_event_type": "player-stop",
+      "client_flow_id": "01EXR0X5K0CFBXMCCQ9KJ3WYCW",
+      "client_flow_type": "",
+      "client_session_id": "local:01EXR0T3BD5N1RGSY195KARJEF",
+      "data": {
+        "duration": 7288.086,
+        "file_src": "https://cdn.kabbalahmedia.info/QsiJUAPa.mp4",
+        "location": "http://bbdev6.kbb1.com:5501/lessons/cu/HzuBd1Jj",
+        "unit_uid": "%[4]s",
+        "current_time": %[3]f
+      }
+    },
+    {
+      "id": "1o2n2xxYrmNlEPMyCXgtiaNJF9n",
+      "created_at": "2021-02-05T02:49:09.52469Z",
+      "user_id": "%[2]s",
+      "ip_addr": "82.166.178.93",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+      "namespace": "archive",
+      "client_event_id": "01EXR1FECJV5BGMABWASCVACQW",
+      "client_event_type": "player-play",
+      "client_flow_id": "01EXR1FCEACR5R2F5BXE8C78NP",
+      "client_flow_type": "unit-page-enter",
+      "client_session_id": "local:01EXR1EHBJM19VP6HA1ZTW72ZM",
+      "data": {
+        "duration": 146.304,
+        "file_src": "https://cdn.kabbalahmedia.info/WAb2ldM5.mp4",
+        "location": "http://bbdev6.kbb1.com:5501/programs/cu/vOeP6mTG",
+        "unit_uid": "vOeP6mTG",
+        "current_time": 0
+      }
+    },
+    {
+      "id": "1o2n3JGp6AUWXiqWPlzDWa7iVtp",
+      "created_at": "2021-02-05T02:49:12.014944Z",
+      "user_id": "%[2]s",
+      "ip_addr": "82.166.178.93",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+      "namespace": "archive",
+      "client_event_id": "01EXR1FGTDM572NX76DBEYKCSB",
+      "client_event_type": "player-stop",
+      "client_flow_id": "01EXR1FECJV5BGMABWASCVACQW",
+      "client_flow_type": "",
+      "client_session_id": "local:01EXR1EHBJM19VP6HA1ZTW72ZM",
+      "data": {
+        "duration": 146.304,
+        "file_src": "https://cdn.kabbalahmedia.info/WAb2ldM5.mp4",
+        "location": "http://bbdev6.kbb1.com:5501/programs/cu/vOeP6mTG",
+        "unit_uid": "vOeP6mTG",
+        "current_time": 100
+      }
+    }
+  ]
+}

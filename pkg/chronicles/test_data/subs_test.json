@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "id": "1o2li9leIger8Z9ZQN4hlkXGrnI",
+      "created_at": "2021-02-05T02:38:10.737922Z",
+      "user_id": "%[2]s",
+      "ip_addr": "82.166.178.93",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+      "namespace": "archive",
+      "client_event_id": "01EXR0VB1V22316ACE92887KBV",
+      "client_event_type": "player-play",
+      "client_flow_id": "01EXR0T3BE48D6ZMPCAB9TKM98",
+      "client_flow_type": "unit-page-enter",
+      "client_session_id": "local:01EXR0T3BD5N1RGSY195KARJEF",
+      "data": {
+        "duration": 7288.086,
+        "file_src": "https://cdn.kabbalahmedia.info/QsiJUAPa.mp4",
+        "location": "http://bbdev6.kbb1.com:5501/lessons/cu/%[1]s",
+        "unit_uid": "%[1]s",
+        "current_time": 0
+      }
+    },
+    {
+      "id": "1o2lqBgUCkVfXzAmq1HND2xAvQS",
+      "created_at": "%[3]s",
+      "user_id": "%[2]s",
+      "ip_addr": "82.166.178.93",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36",
+      "namespace": "archive",
+      "client_event_id": "01EXR0X8YKGZ43XHBBHNH7D15A",
+      "client_event_type": "player-stop",
+      "client_flow_id": "01EXR0X5K0CFBXMCCQ9KJ3WYCW",
+      "client_flow_type": "",
+      "client_session_id": "local:01EXR0T3BD5N1RGSY195KARJEF",
+      "data": {
+        "duration": 7288.086,
+        "file_src": "https://cdn.kabbalahmedia.info/QsiJUAPa.mp4",
+        "location": "http://bbdev6.kbb1.com:5501/lessons/cu/%[1]s",
+        "unit_uid": "%[1]s",
+        "current_time": 1000.0
+      }
+    }
+  ]
+}

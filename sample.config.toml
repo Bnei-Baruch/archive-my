@@ -9,5 +9,6 @@ url = "postgres://localhost/mdb?sslmode=disable&user=postgres&password=12345"
 [app]
 issuer = "https://account-server/auth/realms/main"
 mydb = "postgres://localhost/mydb?sslmode=disable&user=postgres&password=12345"
+mdb_test = "postgres://localhost/mdb?sslmode=disable&user=postgres&password=12345"
 scan_url = "https://chronicle-sserver/scan"
 migration-dir = "file://migrations"

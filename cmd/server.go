@@ -24,5 +24,6 @@ func serverFn(cmd *cobra.Command, args []string) {
 
 	// TODO: singleton comment + put inside App initialization
 	chr := new(chronicles.Chronicles)
+	chr.Init("", "")
 	chr.Run()
 }
