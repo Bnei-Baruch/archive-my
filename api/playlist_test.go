@@ -9,7 +9,7 @@ import (
 
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
-	"github.com/Bnei-Baruch/archive-my/models"
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 )
 
 func (s *ApiTestSuite) TestPlaylist_getPlaylists() {

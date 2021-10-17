@@ -16,8 +16,8 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"golang.org/x/net/context"
 
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/domain"
-	"github.com/Bnei-Baruch/archive-my/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/errs"
 	"github.com/Bnei-Baruch/archive-my/pkg/sqlutil"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
@@ -654,6 +654,7 @@ func (a *App) handleGetHistory(c *gin.Context) {
 			ID:             x.ID,
 			ContentUnitUID: x.ContentUnitUID,
 			Data:           x.Data,
+			Timestamp:      x.ChroniclesTimestamp,
 			CreatedAt:      x.CreatedAt,
 		}
 	}

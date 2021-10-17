@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Bnei-Baruch/archive-my/api"
-	"github.com/Bnei-Baruch/archive-my/pkg/chronicles"
+	"github.com/Bnei-Baruch/archive-my/lib/chronicles"
 )
 
 var serverCmd = &cobra.Command{
@@ -24,6 +24,6 @@ func serverFn(cmd *cobra.Command, args []string) {
 
 	// TODO: singleton comment + put inside App initialization
 	chr := new(chronicles.Chronicles)
-	chr.Init("", "")
+	chr.Init()
 	chr.Run()
 }

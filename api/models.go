@@ -142,6 +142,7 @@ type History struct {
 	ID             int64       `json:"id"`
 	ContentUnitUID null.String `json:"content_unit_uid,omitempty"`
 	Data           null.JSON   `json:"data,omitempty"`
+	Timestamp      time.Time   `json:"timestamp"`
 	CreatedAt      time.Time   `json:"created_at"`
 }
 

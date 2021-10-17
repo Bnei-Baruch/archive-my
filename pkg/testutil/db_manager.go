@@ -3,6 +3,7 @@ package testutil
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,8 +22,8 @@ import (
 	"gopkg.in/khaiql/dbcleaner.v2/engine"
 
 	"github.com/Bnei-Baruch/archive-my/common"
-	migrations "github.com/Bnei-Baruch/archive-my/mdb_migrations"
-	"github.com/Bnei-Baruch/archive-my/models"
+	mdb_migrations "github.com/Bnei-Baruch/archive-my/databases/mdb/migrations"
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
@@ -70,7 +71,13 @@ func (m *TestMyDBManager) Init() error {
 		return pkgerr.Wrap(err, "sql.Open temporary DB")
 	}
 
-	m.DBCleaner = dbcleaner.New()
+	tmpDir, err := ioutil.TempDir("", "dbcleaner_mydb")
+	if err != nil {
+		return pkgerr.Wrap(err, "tmp dir for dbcleaner")
+	}
+	m.DBCleaner = dbcleaner.New(
+		dbcleaner.SetLockFileDir(tmpDir),
+	)
 	m.DBCleaner.SetEngine(engine.NewPostgresEngine(m.DSN))
 
 	return nil
@@ -159,6 +166,13 @@ func (m *TestMDBManager) Init() error {
 		return pkgerr.Wrap(err, "run migrations")
 	}
 
+	tmpDir, err := ioutil.TempDir("", "dbcleaner_mdb")
+	if err != nil {
+		return pkgerr.Wrap(err, "tmp dir for dbcleaner")
+	}
+	m.DBCleaner = dbcleaner.New(
+		dbcleaner.SetLockFileDir(tmpDir),
+	)
 	m.DBCleaner.SetEngine(engine.NewPostgresEngine(m.DSN))
 
 	return nil
@@ -191,6 +205,48 @@ func (m *TestMDBManager) Destroy() error {
 	return nil
 }
 
+func (m *TestMDBManager) AllTables() []string {
+	// hard coded since currently we don't reuse mdb golang models
+	// see https://github.com/Bnei-Baruch/mdb/blob/master/models/boil_table_names.go
+	return []string{
+		"author_i18n",
+		"authors",
+		"authors_sources",
+		"blog_posts",
+		"blogs",
+		"collection_i18n",
+		"collections",
+		"collections_content_units",
+		"content_role_types",
+		"content_types",
+		"content_unit_derivations",
+		"content_unit_i18n",
+		"content_units",
+		"content_units_persons",
+		"content_units_publishers",
+		"content_units_sources",
+		"content_units_tags",
+		"files",
+		"files_operations",
+		"files_storages",
+		"operation_types",
+		"operations",
+		"person_i18n",
+		"persons",
+		"publisher_i18n",
+		"publishers",
+		"source_i18n",
+		"source_types",
+		"sources",
+		"storages",
+		"tag_i18n",
+		"tags",
+		"twitter_tweets",
+		"twitter_users",
+		"users",
+	}
+}
+
 func runMigrate(dsn string) error {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -203,7 +259,7 @@ func runMigrate(dsn string) error {
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
-	rel := filepath.Join(filepath.Dir(filename), "..", "..", "migrations")
+	rel := filepath.Join(filepath.Dir(filename), "..", "..", "databases", "mydb", "migrations")
 	migrator, err := migrate.NewWithDatabaseInstance(fmt.Sprintf("file://%s", rel), "postgres", driver)
 	if err != nil {
 		return err
@@ -232,7 +288,7 @@ func runRambler(db *sql.DB) error {
 		}
 
 		//fmt.Printf("Applying migration %s\n", path)
-		m, err := migrations.NewMigration(path)
+		m, err := mdb_migrations.NewMigration(path)
 		if err != nil {
 			fmt.Printf("Error migrating %s, %s", path, err.Error())
 			return err
@@ -248,7 +304,7 @@ func runRambler(db *sql.DB) error {
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
-	rel := filepath.Join(filepath.Dir(filename), "..", "..", "mdb_migrations")
+	rel := filepath.Join(filepath.Dir(filename), "..", "..", "databases", "mdb", "migrations")
 	return filepath.Walk(rel, visit)
 }
 

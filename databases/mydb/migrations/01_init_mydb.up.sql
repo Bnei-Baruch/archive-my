@@ -70,12 +70,13 @@ CREATE TABLE subscriptions
 DROP TABLE IF EXISTS history;
 CREATE TABLE history
 (
-    id               BIGSERIAL PRIMARY KEY,
-    user_id          BIGINT REFERENCES users                NOT NULL,
-    chronicle_id     CHAR(27)                               NOT NULL,
-    content_unit_uid CHAR(8),
-    data             JSONB,
-    created_at       TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+    id                   BIGSERIAL PRIMARY KEY,
+    user_id              BIGINT REFERENCES users                NOT NULL,
+    chronicles_id        CHAR(27)                               NOT NULL,
+    chronicles_timestamp TIMESTAMP WITH TIME ZONE               NOT NULL,
+    content_unit_uid     CHAR(8),
+    data                 JSONB,
+    created_at           TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
 

@@ -8,7 +8,7 @@ import (
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
-	"github.com/Bnei-Baruch/archive-my/models"
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/testutil"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )

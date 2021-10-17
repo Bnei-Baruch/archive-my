@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/Bnei-Baruch/archive-my/common"
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/domain"
 	"github.com/Bnei-Baruch/archive-my/middleware"
-	"github.com/Bnei-Baruch/archive-my/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/testutil"
 	"github.com/Bnei-Baruch/archive-my/pkg/testutil/mocks"
 )

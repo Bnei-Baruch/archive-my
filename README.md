@@ -35,12 +35,12 @@ brew install golang-migrate
 
 Create a new migration by
 ```shell script
-migrate create -ext .sql -dir migrations -format 20060102150405 <migration_name_goes_here>
+migrate create -ext .sql -dir databases/mydb/migrations -format 20060102150405 <migration_name_goes_here>
 ```
 
 Run migrations
 ```shell script
-migrate -database "postgres://user:password@localhost/mydb?sslmode=disable" -path migrations up
+migrate -database "postgres://user:password@localhost/mydb?sslmode=disable" -path databases/mydb/migrations up
 ```
 
 Regenerate models
