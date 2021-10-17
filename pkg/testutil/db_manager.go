@@ -218,7 +218,7 @@ func (m *TestMDBManager) AllTables() []string {
 		"collections",
 		"collections_content_units",
 		"content_role_types",
-		"content_types",
+		//"content_types",  // holds data from migrations (don't clean each time)
 		"content_unit_derivations",
 		"content_unit_i18n",
 		"content_units",
@@ -229,7 +229,7 @@ func (m *TestMDBManager) AllTables() []string {
 		"files",
 		"files_operations",
 		"files_storages",
-		"operation_types",
+		//"operation_types",  // holds data from migrations (don't clean each time)
 		"operations",
 		"person_i18n",
 		"persons",
