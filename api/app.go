@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/Bnei-Baruch/archive-my/common"
+	"github.com/Bnei-Baruch/archive-my/instrumentation"
 	"github.com/Bnei-Baruch/archive-my/middleware"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
@@ -62,7 +63,7 @@ func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenV
 
 	a.initRoutes(tokenVerifier)
 	//a.initChronicles()
-	//a.initInstrumentation()
+	instrumentation.Stats.Init()
 }
 
 func (a *App) Run() {
@@ -83,6 +84,8 @@ func (a *App) Shutdown() {
 
 func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	a.Router.GET("/health_check", a.HealthCheckHandler)
+	a.Router.GET("/metrics", a.MakePrometheusHandler())
+
 	a.Router.GET("/like_count", a.handleLikeCount)
 	// TODO: public endpoint for public playlists (get by UID) string all internal IDs
 

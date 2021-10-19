@@ -2,11 +2,14 @@ package middleware
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/segmentio/ksuid"
+
+	"github.com/Bnei-Baruch/archive-my/instrumentation"
 )
 
 var requestLog = zerolog.New(os.Stdout).With().Timestamp().Caller().Stack().Logger()
@@ -35,13 +38,19 @@ func LoggingMiddleware() gin.HandlerFunc {
 
 		c.Next()
 
+		latency := time.Now().Sub(start)
+
 		l.Info().
 			Str("method", r.Method).
 			Str("path", path).
 			Int("status", c.Writer.Status()).
 			Int("size", c.Writer.Size()).
-			Dur("duration", time.Since(start)).
+			Dur("duration", latency).
 			Str("ip", c.ClientIP()).
 			Msg("")
+
+		instrumentation.Stats.RequestDurationHistogram.
+			WithLabelValues(c.Request.Method, path, strconv.Itoa(c.Writer.Status())).
+			Observe(latency.Seconds())
 	}
 }
