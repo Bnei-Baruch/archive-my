@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -29,6 +30,9 @@ var Config *config
 
 func Init() {
 	Config = newConfig()
+
+	fmt.Printf("MYDB_URL=%s\n", os.Getenv("MYDB_URL"))
+	fmt.Printf("MDB_URL=%s\n", os.Getenv("MDB_URL"))
 
 	if val := os.Getenv("LISTEN_ADDRESS"); val != "" {
 		Config.ListenAddress = val
