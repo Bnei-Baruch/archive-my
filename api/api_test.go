@@ -31,7 +31,7 @@ func (s *ApiTestSuite) SetupSuite() {
 	common.Config.GinMode = "test"
 	s.app = new(App)
 	s.MyDB = new(testutil.TestMyDBManager)
-	s.Require().Nil(s.MyDB.Init())
+	s.Require().NoError(s.MyDB.Init())
 	s.tokenVerifier = new(mocks.OIDCTokenVerifier)
 	s.app.InitializeWithDeps(s.MyDB.DB, s.tokenVerifier)
 }

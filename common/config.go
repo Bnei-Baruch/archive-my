@@ -31,9 +31,6 @@ var Config *config
 func Init() {
 	Config = newConfig()
 
-	fmt.Printf("MYDB_URL=%s\n", os.Getenv("MYDB_URL"))
-	fmt.Printf("MDB_URL=%s\n", os.Getenv("MDB_URL"))
-
 	if val := os.Getenv("LISTEN_ADDRESS"); val != "" {
 		Config.ListenAddress = val
 	}
@@ -52,4 +49,9 @@ func Init() {
 	if val := os.Getenv("ACCOUNTS_URL"); val != "" {
 		Config.AccountsUrls = strings.Split(val, ",")
 	}
+
+	fmt.Printf("MYDB_URL=%s\n", os.Getenv("MYDB_URL"))
+	fmt.Printf("MDB_URL=%s\n", os.Getenv("MDB_URL"))
+	fmt.Printf("Config.MyDBUrl=%s\n", Config.MyDBUrl)
+	fmt.Printf("Config.MDBUrl=%s\n", Config.MDBUrl)
 }
