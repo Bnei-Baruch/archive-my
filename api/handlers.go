@@ -607,7 +607,12 @@ func (a *App) handleLikeCount(c *gin.Context) {
 	}
 
 	count, err := models.Reactions(mods...).Count(a.DB)
-	concludeRequest(c, count, errs.NewInternalError(pkgerr.WithStack(err)))
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	concludeRequest(c, count, nil)
 }
 
 //History handlers

@@ -53,8 +53,10 @@ func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenV
 		MaxAge:         3600,
 	})
 
-	// TODO: logging, rollbar, recovery, etc...
 	a.Router.Use(
+		middleware.LoggingMiddleware(),
+		middleware.RecoveryMiddleware(),
+		middleware.ErrorHandlingMiddleware(),
 		corsMiddleware,
 		middleware.DataStoresMiddleware(a.DB))
 

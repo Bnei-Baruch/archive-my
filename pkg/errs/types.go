@@ -12,3 +12,7 @@ func (e *WithMessage) Error() string {
 func (e *WithMessage) Cause() error {
 	return e.Err
 }
+
+func (e *WithMessage) Unwrap() error {
+	return e.Err
+}

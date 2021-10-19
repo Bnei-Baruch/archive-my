@@ -11,8 +11,8 @@ require (
 	github.com/docker/docker v20.10.7+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/friendsofgo/errors v0.9.2
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-playground/validator/v10 v10.4.1
 	github.com/golang-migrate/migrate v3.5.4+incompatible
 	github.com/khaiql/dbcleaner v2.3.0+incompatible // indirect
 	github.com/lib/pq v1.8.0
@@ -23,7 +23,8 @@ require (
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/rs/cors v1.8.0
 	github.com/rs/zerolog v1.25.0
-	github.com/sirupsen/logrus v1.8.1
+	github.com/segmentio/ksuid v1.0.4
+	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.7.0
