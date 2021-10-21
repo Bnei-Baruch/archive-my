@@ -36,7 +36,7 @@ WORKDIR /app
 COPY misc/wait-for /wait-for
 COPY --from=build ${work_dir}/archive-my .
 
-COPY --from=build ${work_dir}/databases/mdb/migrations migrations/mdb
+COPY --from=build ${work_dir}/databases/mydb/migrations migrations/mydb
 
 EXPOSE 8080
 
