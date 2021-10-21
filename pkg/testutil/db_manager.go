@@ -17,7 +17,6 @@ import (
 	"github.com/lib/pq"
 	pkgerr "github.com/pkg/errors"
 	_ "github.com/stretchr/testify"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 	"gopkg.in/khaiql/dbcleaner.v2"
 	"gopkg.in/khaiql/dbcleaner.v2/engine"
 
@@ -35,21 +34,18 @@ type TestMyDBManager struct {
 }
 
 func (m *TestMyDBManager) Init() error {
-	boil.DebugMode = true
+	//boil.DebugMode = true
 
 	m.Name = fmt.Sprintf("test_%s", strings.ToLower(utils.GenerateName(5)))
 	fmt.Println("Initializing test MyDB: ", m.Name)
 
 	// Open connection
-	fmt.Println("sql.Open: ", common.Config.MyDBUrl)
 	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	if err != nil {
-		fmt.Println("sql.Open error:", err)
 		return pkgerr.Wrap(err, "sql.Open")
 	}
 
 	// Create a new temporary test database
-	fmt.Println("Create a new temporary test database: ", m.Name)
 	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s", m.Name)); err != nil {
 		return pkgerr.Wrap(err, "create database")
 	}

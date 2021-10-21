@@ -38,7 +38,7 @@ func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenV
 	a.DB = db
 
 	gin.SetMode(common.Config.GinMode)
-	a.Router = gin.Default()
+	a.Router = gin.New()
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
