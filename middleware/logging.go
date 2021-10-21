@@ -20,17 +20,14 @@ func LoggingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 
-		// Create a copy of the logger (see hlog.NewHandler)
-		l := requestLog.With().Logger()
-		c.Set("LOGGER", l)
-
 		// request id (see hlog.RequestIDHandler)
 		requestID := ksuid.New()
 		c.Set("REQUEST_ID", requestID)
 		c.Header("X-Request-ID", requestID.String())
-		l.UpdateContext(func(c zerolog.Context) zerolog.Context {
-			return c.Str("request_id", requestID.String())
-		})
+
+		// Create a copy of the logger (see hlog.NewHandler)
+		l := requestLog.With().Str("request_id", requestID.String()).Logger()
+		c.Set("LOGGER", l)
 
 		// log line (see hlog.AccessHandler)
 		r := c.Request
