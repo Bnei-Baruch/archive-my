@@ -29,7 +29,7 @@ const (
 	MaxPlaylistSize = 1000
 )
 
-//Playlists handlers
+//Playlist handlers
 func (a *App) handleGetPlaylists(c *gin.Context) {
 	var r GetPlaylistsRequest
 	if c.Bind(&r) != nil {
@@ -483,7 +483,7 @@ func (a *App) handleRemovePlaylistItems(c *gin.Context) {
 	concludeRequest(c, resp, err)
 }
 
-// Reactions handlers
+// Reaction handlers
 func (a *App) handleGetReactions(c *gin.Context) {
 	var r GetReactionsRequest
 	if c.Bind(&r) != nil {
@@ -584,35 +584,55 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		_, err := models.Reactions(models.ReactionWhere.UserID.EQ(user.ID),
+		count, err := models.Reactions(models.ReactionWhere.UserID.EQ(user.ID),
 			models.ReactionWhere.Kind.EQ(r.Kind),
 			models.ReactionWhere.SubjectType.EQ(r.SubjectType),
 			models.ReactionWhere.SubjectUID.EQ(r.SubjectUID)).DeleteAll(tx)
-		return err
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return errs.NewNotFoundError(sql.ErrNoRows)
+		}
+		return nil
 	})
 
 	concludeRequest(c, nil, err)
 }
 
-func (a *App) handleLikeCount(c *gin.Context) {
-	// TODO: count per kind
+func (a *App) handleReactionCount(c *gin.Context) {
 	var req UIDsFilter
 	if c.Bind(&req) != nil {
 		return
 	}
 
-	var mods []qm.QueryMod
-	if len(req.UIDs) > 0 {
-		mods = append(mods, qm.WhereIn("content_unit_uid in ?", utils.ConvertArgsString(req.UIDs)...))
+	mods := []qm.QueryMod{
+		qm.Select(models.ReactionColumns.SubjectUID, models.ReactionColumns.SubjectType, models.ReactionColumns.Kind, "count(id)"),
+		qm.From(models.TableNames.Reactions),
+		qm.GroupBy(models.ReactionColumns.SubjectUID),
+		qm.GroupBy(models.ReactionColumns.Kind),
 	}
 
-	count, err := models.Reactions(mods...).Count(a.DB)
+	db := c.MustGet("MY_DB").(*sql.DB)
+	if len(req.UIDs) > 0 {
+		mods = append(mods, models.ReactionWhere.SubjectUID.IN(req.UIDs))
+	}
+
+	rows, err := models.NewQuery(mods...).Query(db)
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
 	}
+	defer rows.Close()
 
-	concludeRequest(c, count, nil)
+	resp := make([]*ReactionCount, 0)
+	for rows.Next() {
+		r := &ReactionCount{}
+		err = rows.Scan(r.SubjectUID, r.SubjectType, r.Kind, r.Total)
+		resp = append(resp, r)
+	}
+
+	concludeRequest(c, resp, nil)
 }
 
 //History handlers
@@ -682,14 +702,20 @@ func (a *App) handleDeleteHistory(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		_, err := models.Histories(models.HistoryWhere.UserID.EQ(user.ID), models.HistoryWhere.ID.EQ(id)).DeleteAll(tx)
-		return err
+		count, err := models.Histories(models.HistoryWhere.UserID.EQ(user.ID), models.HistoryWhere.ID.EQ(id)).DeleteAll(tx)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return errs.NewNotFoundError(sql.ErrNoRows)
+		}
+		return nil
 	})
 
 	concludeRequest(c, nil, err)
 }
 
-//Subscriptions handlers
+//Subscription handlers
 
 func (a *App) handleGetSubscriptions(c *gin.Context) {
 	var r GetSubscriptionsRequest
@@ -751,7 +777,7 @@ func (a *App) handleSubscribe(c *gin.Context) {
 		return
 	}
 
-	if r.CollectionUID != "" && r.ContentType != "" {
+	if r.CollectionUID == "" && r.ContentType == "" {
 		errs.NewBadRequestError(errors.New("collection_uid and content_type are mutually exclusive")).Abort(c)
 		return
 	}
@@ -804,8 +830,14 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		_, err := models.Subscriptions(models.HistoryWhere.UserID.EQ(user.ID), models.SubscriptionWhere.ID.EQ(id)).DeleteAll(tx)
-		return err
+		count, err := models.Subscriptions(models.SubscriptionWhere.UserID.EQ(user.ID), models.SubscriptionWhere.ID.EQ(id)).DeleteAll(tx)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return errs.NewNotFoundError(sql.ErrNoRows)
+		}
+		return nil
 	})
 
 	concludeRequest(c, nil, err)

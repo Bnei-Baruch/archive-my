@@ -1,126 +1,106 @@
 package api
 
-//
-//import (
-//	"encoding/json"
-//	"math/rand"
-//
-//	"github.com/volatiletech/null/v8"
-//	"github.com/volatiletech/sqlboiler/v4/boil"
-//
-//	"github.com/Bnei-Baruch/archive-my/models"
-//	"github.com/Bnei-Baruch/archive-my/pkg/testutil"
-//	"github.com/Bnei-Baruch/archive-my/pkg/utils"
-//)
-//
-//func (s *ApiTestSuite) TestHistory_noHistory() {
-//	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
-//	s.Require().NoError(err)
-//
-//	s.app.getLikes(c, s.mydb.DB)
-//	var resp HistoryResponse
-//	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
-//	s.EqualValues(0, resp.Total, "empty total")
-//	s.Empty(resp.Items, "empty data")
-//}
-//
-//func (s *ApiTestSuite) TestHistory_simpleGet() {
-//	items := s.createDummyHistory(10)
-//	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10, OrderBy: "id"})
-//	s.Require().NoError(err)
-//	var resp HistoryResponse
-//	s.app.getHistory(c, s.mydb.DB)
-//	s.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
-//	s.EqualValues(10, resp.Total, "total")
-//	for i, x := range resp.Items {
-//		s.assertEqualHistory(items[i], x, i)
-//	}
-//}
-//
-//func (s *ApiTestSuite) TestHistory_diffAccounts() {
-//	items := s.createDummyHistory(10)
-//	items[1].AccountID = "new_account_id"
-//	_, err := items[1].Update(s.mydb.DB, boil.Whitelist("account_id"))
-//	s.NoError(err)
-//	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 10})
-//	s.NoError(err)
-//	var resp HistoryResponse
-//	s.app.getHistory(c, s.mydb.DB)
-//	s.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
-//	s.EqualValues(9, resp.Total, "total")
-//	for _, l := range resp.Items {
-//		s.Equal(s.kcId, l.AccountID)
-//	}
-//}
-//
-//func (s *ApiTestSuite) TestHistory_paginate() {
-//	items := s.createDummyHistory(20)
-//	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 2, PageSize: 5, OrderBy: "id"})
-//	s.Require().NoError(err)
-//	var resp HistoryResponse
-//	s.Require().NoError(err)
-//	s.app.getHistory(c, s.mydb.DB)
-//	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
-//	s.Equal(int64(20), resp.Total, "total")
-//	s.Equal(5, len(resp.Items))
-//	for i, x := range resp.Items {
-//		s.assertEqualHistory(items[i+5], x, i+5)
-//	}
-//}
-//
-//func (s *ApiTestSuite) TestHistory_remove() {
-//	items := s.createDummyHistory(20)
-//	itemR1 := items[rand.Intn(10-1)+1]
-//	itemR2 := items[rand.Intn(20-11)+11]
-//	ids := &IDsFilter{IDs: []int64{itemR1.ID, itemR2.ID}}
-//	cDel, _, err := testutil.PrepareContext(ids)
-//	s.Require().NoError(err)
-//	s.app.deleteHistory(cDel, s.mydb.DB)
-//
-//	c, w, err := testutil.PrepareContext(ListRequest{PageNumber: 1, PageSize: 20})
-//	var resp HistoryResponse
-//	s.app.getHistory(c, s.mydb.DB)
-//	s.Nil(json.Unmarshal(w.Body.Bytes(), &resp))
-//	s.EqualValues(18, resp.Total, "total")
-//	s.NotContains(resp.Items, itemR1)
-//	s.NotContains(resp.Items, itemR2)
-//}
-//
-//func (s *ApiTestSuite) TestHistory_removeOtherAcc() {
-//	items := s.createDummyHistory(10)
-//
-//	item := items[rand.Intn(10-1)+1]
-//	item.AccountID = "new_account_id"
-//	c, err := item.Update(s.mydb.DB, boil.Infer())
-//	s.NoError(err)
-//	s.Equal(c, int64(1))
-//
-//	ids := &IDsFilter{IDs: []int64{item.ID}}
-//	cDel, _, err := testutil.PrepareContext(ids)
-//	s.Require().NoError(err)
-//	s.app.deleteHistory(cDel, s.mydb.DB)
-//	count, err := models.Histories().Count(s.mydb.DB)
-//	s.NoError(err)
-//	s.Equal(int64(10), count)
-//}
-//
-////help functions
-//func (s *ApiTestSuite) createDummyHistory(n int64) []*models.History {
-//	items := make([]*models.History, n)
-//	for i, _ := range items {
-//		items[i] = &models.History{
-//			ID:             int64(i + 1),
-//			AccountID:      s.kcId,
-//			ChronicleID:    utils.GenerateUID(27),
-//			ContentUnitUID: null.String{String: utils.GenerateUID(8), Valid: true},
-//		}
-//		s.NoError(items[i].Insert(s.mydb.DB, boil.Infer()))
-//	}
-//	return items
-//}
-//
-//func (s *ApiTestSuite) assertEqualHistory(l *models.History, x *models.History, idx int) {
-//	s.Equal(l.ID, x.ID, "history.ID [%d]", idx)
-//	s.Equal(l.AccountID, x.AccountID, "history.AccountID [%d]", idx)
-//	s.Equal(l.ContentUnitUID, x.ContentUnitUID, "history.UnitUID [%d]", idx)
-//}
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
+)
+
+func (s *ApiTestSuite) TestHistory_getHistory() {
+	user := s.CreateUser()
+
+	// no histories whatsoever
+	req, _ := http.NewRequest(http.MethodGet, "/rest/history", nil)
+	s.apiAuthUser(req, user)
+	var resp HistoryResponse
+	s.request200json(req, &resp)
+
+	s.EqualValues(0, resp.Total, "total")
+	s.Empty(resp.Items, "items empty")
+
+	// with histories
+	histories := make([]*models.History, 5)
+	for i := range histories {
+		histories[i] = s.CreateHistory(user)
+	}
+
+	req, _ = http.NewRequest(http.MethodGet, "/rest/history?order_by=id", nil)
+	s.apiAuthUser(req, user)
+	s.request200json(req, &resp)
+
+	s.EqualValues(len(histories), resp.Total, "total")
+	s.Require().Len(resp.Items, len(histories), "items length")
+	for i, x := range resp.Items {
+		s.assertHistory(histories[i], x, i)
+	}
+
+	// other users see no histories
+	s.assertTokenVerifier()
+	otherUser := s.CreateUser()
+	req, _ = http.NewRequest(http.MethodGet, "/rest/history", nil)
+	s.apiAuthUser(req, otherUser)
+	s.request200json(req, &resp)
+	s.EqualValues(0, resp.Total, "total")
+	s.Empty(resp.Items, "items empty")
+}
+
+func (s *ApiTestSuite) TestHistory_getHistory_pagination() {
+	user := s.CreateUser()
+	histories := make([]*models.History, 10)
+	for i := range histories {
+		histories[i] = s.CreateHistory(user)
+	}
+
+	for i := 0; i < 2; i++ {
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/history?page_no=%d&page_size=%d&order_by=id", i+1, 5), nil)
+		s.apiAuthUser(req, user)
+		var resp HistoryResponse
+		s.request200json(req, &resp)
+
+		s.EqualValues(len(histories), resp.Total, "total")
+		s.Require().Len(resp.Items, 5, "items length")
+		for j, x := range resp.Items {
+			s.assertHistory(histories[(i*5)+j], x, j)
+		}
+	}
+}
+
+func (s *ApiTestSuite) TestHistory_deleteHistory_notFound() {
+	user := s.CreateUser()
+
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/history/%d", 1), nil)
+	s.apiAuthUser(req, user)
+	resp := s.request(req)
+	s.Equal(http.StatusNotFound, resp.Code)
+
+	s.assertTokenVerifier()
+	otherUser := s.CreateUser()
+	history := s.CreateHistory(user)
+	req, _ = http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/history/%d", history.ID), nil)
+	s.apiAuthUser(req, otherUser)
+	resp = s.request(req)
+	s.Equal(http.StatusNotFound, resp.Code)
+}
+
+func (s *ApiTestSuite) TestHistory_deleteHistory() {
+	user := s.CreateUser()
+	history := s.CreateHistory(user)
+
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/history/%d", history.ID), nil)
+	s.apiAuthUser(req, user)
+	resp := s.request(req)
+	s.Equal(http.StatusOK, resp.Code)
+
+	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/history/%d", history.ID), nil)
+	s.apiAuthUser(req, user)
+	resp = s.request(req)
+	s.Equal(http.StatusNotFound, resp.Code)
+}
+
+//help functions
+
+func (s *ApiTestSuite) assertHistory(expected *models.History, actual *History, idx int) {
+	s.Equal(expected.ID, actual.ID, "ID [%d]", idx)
+	s.Equal(expected.ContentUnitUID, actual.ContentUnitUID, "ContentUnitUID [%d]", idx)
+}

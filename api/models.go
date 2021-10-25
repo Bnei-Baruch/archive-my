@@ -138,6 +138,11 @@ type Reaction struct {
 	SubjectUID  string `json:"subject_uid"`
 }
 
+type ReactionCount struct {
+	Total string `json:"total"`
+	Reaction
+}
+
 type History struct {
 	ID             int64       `json:"id"`
 	ContentUnitUID null.String `json:"content_unit_uid,omitempty"`

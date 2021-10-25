@@ -86,7 +86,7 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	a.Router.GET("/health_check", a.HealthCheckHandler)
 	a.Router.GET("/metrics", a.MakePrometheusHandler())
 
-	a.Router.GET("/like_count", a.handleLikeCount)
+	a.Router.GET("/reaction_count", a.handleReactionCount)
 	// TODO: public endpoint for public playlists (get by UID) string all internal IDs
 
 	rest := a.Router.Group("/rest")

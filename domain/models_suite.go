@@ -61,3 +61,52 @@ func (s *ModelsSuite) AddPlaylistItems(playlist *models.Playlist, n int) {
 	}
 	s.Require().NoError(playlist.AddPlaylistItems(s.MyDB.DB, true, items...))
 }
+
+func (s *ModelsSuite) CreateHistory(user *models.User) *models.History {
+	history := &models.History{
+		UserID:         user.ID,
+		ContentUnitUID: null.String{String: utils.GenerateUID(8), Valid: true},
+	}
+	s.Require().NoError(history.Insert(s.MyDB.DB, boil.Infer()))
+	return history
+}
+
+func (s *ModelsSuite) CreateSubscription(user *models.User, ct string) *models.Subscription {
+	subscription := &models.Subscription{
+		UserID: user.ID,
+	}
+	if ct == "" {
+		subscription.CollectionUID = null.String{String: utils.GenerateUID(8), Valid: true}
+	} else {
+		subscription.ContentType = null.String{String: ct, Valid: true}
+	}
+	s.Require().NoError(subscription.Insert(s.MyDB.DB, boil.Infer()))
+	return subscription
+}
+
+func (s *ModelsSuite) CreateReaction(user *models.User, kind, sType, sUID string) *models.Reaction {
+
+	reaction := &models.Reaction{UserID: user.ID}
+
+	if kind != "" {
+		reaction.Kind = kind
+	} else {
+		reaction.Kind = utils.GenerateName(rand.Intn(15) + 1)
+	}
+
+	if sType != "" {
+		reaction.SubjectType = sType
+	} else {
+		reaction.SubjectType = utils.GenerateName(rand.Intn(15) + 1)
+	}
+
+	if sUID != "" {
+		reaction.SubjectUID = sUID
+	} else {
+		reaction.SubjectUID = utils.GenerateUID(8)
+	}
+
+	s.NoError(reaction.Insert(s.MyDB.DB, boil.Infer()))
+
+	return reaction
+}
