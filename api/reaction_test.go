@@ -93,8 +93,8 @@ func (s *ApiTestSuite) TestReactions_deleteReactions_notFound() {
 	//try to remove with other user
 	s.assertTokenVerifier()
 	otherUser := s.CreateUser()
-	s.apiAuthUser(req, otherUser)
 	req, _ = http.NewRequest(http.MethodDelete, "/rest/reactions", bytes.NewReader(payload))
+	s.apiAuthUser(req, otherUser)
 	resp = s.request(req)
 	s.Equal(http.StatusNotFound, resp.Code)
 }
