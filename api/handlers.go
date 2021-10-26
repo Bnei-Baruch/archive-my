@@ -3,502 +3,602 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
 
-	"github.com/friendsofgo/errors"
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
+	pkgerr "github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	"golang.org/x/net/context"
 
-	"archive-my/models"
-	"archive-my/pkg/utils"
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
+	"github.com/Bnei-Baruch/archive-my/domain"
+	"github.com/Bnei-Baruch/archive-my/pkg/errs"
+	"github.com/Bnei-Baruch/archive-my/pkg/sqlutil"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 const (
 	DefaultPageSize = 50
 	MaxPageSize     = 1000
+	MaxPlaylistSize = 1000
 )
 
-//Playlist handlers
+//Playlists handlers
 func (a *App) handleGetPlaylists(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	var r GetPlaylistsRequest
+	if c.Bind(&r) != nil {
 		return
 	}
-	defer closeTransaction(tx, nil)
-	a.getPlaylists(c, tx)
-}
 
-func (a *App) getPlaylists(c *gin.Context, tx boil.Executor) {
-	kcId := c.MustGet("KC_ID").(string)
-	mods := []qm.QueryMod{
-		qm.Load("PlaylistItems"),
-		qm.Where("account_id = ?", kcId),
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
 	}
 
-	var req ListRequest
-	if c.Bind(&req) != nil {
-		NewBadRequestError(nil).Abort(c)
-	}
-	if err := appendMyListMods(&mods, req); err != nil {
-		NewBadRequestError(err).Abort(c)
-	}
-	pls, err := models.Playlists(mods...).All(tx)
+	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	total, err := models.Playlists(mods...).Count(db)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
 	}
 
-	total, err := models.Playlists(qm.Where("account_id = ?", kcId)).Count(tx)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	if total == 0 {
+		concludeRequest(c, NewPlaylistsResponse(0, 0), nil)
+		return
 	}
-	plResp := make([]*playlistResponse, len(pls))
-	for i, p := range pls {
-		plResp[i] = &playlistResponse{Playlist: p}
-		if p.R.PlaylistItems != nil {
-			plResp[i].ItemsCount = int64(len(p.R.PlaylistItems))
-			plResp[i].PlaylistItems = []*models.PlaylistItem{p.R.PlaylistItems[0]}
+
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, NewPlaylistsResponse(0, 0), nil)
+		return
+	}
+
+	items, err := models.Playlists(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	playlistIDs := make([]int64, len(items))
+	playlistDTOByID := make(map[int64]*Playlist, len(items))
+	resp := NewPlaylistsResponse(total, len(items))
+	for i, x := range items {
+		resp.Items[i] = makePlaylistDTO(x)
+		playlistIDs[i] = x.ID
+		playlistDTOByID[x.ID] = resp.Items[i]
+	}
+
+	// total_items histogram
+	rows, err := models.NewQuery(
+		qm.Select(models.PlaylistItemColumns.PlaylistID, "count(*)"),
+		qm.From(models.TableNames.PlaylistItems),
+		models.PlaylistItemWhere.PlaylistID.IN(playlistIDs),
+		qm.GroupBy(models.PlaylistItemColumns.PlaylistID),
+	).Query(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var playlistID int64
+		var totalItems int
+		if err := rows.Scan(&playlistID, &totalItems); err != nil {
+			errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+			return
 		}
+		playlistDTOByID[playlistID].TotalItems = totalItems
 	}
 
-	resp := playlistsResponse{ListResponse: ListResponse{Total: total}, Playlists: plResp}
+	if err := rows.Err(); err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
 	concludeRequest(c, resp, nil)
 }
 
 func (a *App) handleCreatePlaylist(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	var r PlaylistRequest
+	if c.BindJSON(&r) != nil {
 		return
 	}
-	pls, httpErr := a.createPlaylist(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, pls, httpErr)
-}
 
-func (a *App) createPlaylist(c *gin.Context, tx boil.Executor) ([]*models.Playlist, *HttpError) {
-	kcId := c.MustGet("KC_ID").(string)
-	var p models.Playlist
-	if err := c.Bind(&p); err != nil {
-		return nil, NewBadRequestError(err)
-	}
-	pl := models.Playlist{
-		AccountID:  kcId,
-		Name:       p.Name,
-		Parameters: p.Parameters,
-		Public:     p.Public,
-	}
-
-	return []*models.Playlist{&pl}, NewInternalError(pl.Insert(tx, boil.Infer()))
-}
-
-func (a *App) handleUpdatePlaylist(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
 		return
 	}
-	p, httpErr := a.updatePlaylist(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, p, httpErr)
-}
 
-func (a *App) updatePlaylist(c *gin.Context, tx boil.Executor) (*models.Playlist, *HttpError) {
-	id, e := strconv.ParseInt(c.Param("id"), 10, 0)
-	if e != nil {
-		return nil, NewBadRequestError(e)
-	}
-
-	kcId := c.MustGet("KC_ID").(string)
-	var np models.Playlist
-	if c.Bind(&np) != nil {
-		return nil, NewBadRequestError(nil)
-	}
-
-	p, err := models.Playlists(
-		qm.Where("id = ?", id),
-		qm.Load("PlaylistItems"),
-	).One(tx)
-	if err != nil {
-		return nil, NewInternalError(err)
-	}
-
-	if kcId != p.AccountID {
-		return nil, NewHttpError(http.StatusNotAcceptable, nil, gin.ErrorTypePrivate)
-	}
-	if p.Name != np.Name {
-		p.Name = np.Name
-	}
-	if p.LastPlayed != np.LastPlayed {
-		p.LastPlayed = np.LastPlayed
-	}
-	if p.Public != np.Public {
-		p.Public = np.Public
-	}
-
-	params, err := buildNewParams(&np, p)
-	if err != nil {
-		return nil, NewInternalError(err)
-	}
-	if params != nil {
-		p.Parameters = null.JSONFrom(params)
-	}
-	_, err = p.Update(tx, boil.Infer())
-	return p, NewInternalError(err)
-}
-
-func (a *App) handleDeletePlaylist(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-		return
-	}
-	httpErr := a.deletePlaylist(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, nil, httpErr)
-}
-
-func (a *App) deletePlaylist(c *gin.Context, tx boil.Executor) *HttpError {
-	var req IDsRequest
-	if c.Bind(&req) != nil {
-		return NewBadRequestError(nil)
-	}
-
-	kcId := c.MustGet("KC_ID").(string)
-
-	ps, err := models.Playlists(
-		qm.Load("PlaylistItems"),
-		qm.Where("account_id = ?", kcId),
-		qm.WhereIn("id in ?", utils.ConvertArgsInt64(req.IDs)...),
-	).All(tx)
-	if err != nil {
-		return NewInternalError(err)
-	}
-	for _, p := range ps {
-		_, err = p.R.PlaylistItems.DeleteAll(tx)
+	var resp interface{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		uid, err := domain.GetFreeUID(tx, new(domain.PlaylistUIDChecker))
 		if err != nil {
-			return NewInternalError(err)
+			return pkgerr.Wrap(err, "get free UID")
 		}
-	}
-	_, err = ps.DeleteAll(tx)
-	return NewInternalError(err)
+
+		playlist := models.Playlist{
+			UserID: user.ID,
+			UID:    uid,
+			Public: r.Public,
+		}
+
+		if r.Name != "" {
+			playlist.Name = null.StringFrom(r.Name)
+		}
+
+		if r.Properties != nil {
+			props, err := json.Marshal(r.Properties)
+			if err != nil {
+				return pkgerr.Wrap(err, "json.Marshal properties")
+			}
+			playlist.Properties = null.JSONFrom(props)
+		}
+
+		if err := playlist.Insert(tx, boil.Infer()); err != nil {
+			return pkgerr.WithStack(err)
+		}
+
+		resp = makePlaylistDTO(&playlist)
+
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
 }
 
 func (a *App) handleGetPlaylist(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-		return
-	}
-	defer closeTransaction(tx, nil)
-	a.getPlaylist(c, tx)
-}
-
-func (a *App) getPlaylist(c *gin.Context, tx boil.Executor) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		NewBadRequestError(err).Abort(c)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
 	}
 
-	kcId := c.MustGet("KC_ID").(string)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
 
-	pl, err := models.Playlists(
-		qm.Where("account_id = ? AND id = ?", kcId, id),
-		qm.Load("PlaylistItems"),
-	).One(tx)
+	db := c.MustGet("MY_DB").(*sql.DB)
+
+	playlist, err := models.FindPlaylist(db, id)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		if err != sql.ErrNoRows {
+			errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+			return
+		}
+		errs.NewNotFoundError(err).Abort(c)
+		return
+	}
+	if playlist.UserID != user.ID {
+		errs.NewNotFoundError(errors.New("owner mismatch")).Abort(c)
+		return
 	}
 
-	sort.SliceStable(pl.R.PlaylistItems, func(i int, j int) bool {
-		return pl.R.PlaylistItems[i].Position > pl.R.PlaylistItems[j].Position
+	if err := playlist.L.LoadPlaylistItems(db, true, playlist, nil); err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	resp := makePlaylistDTO(playlist)
+
+	concludeRequest(c, resp, nil)
+}
+
+func (a *App) handleUpdatePlaylist(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	var r PlaylistRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	var resp interface{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		playlist, err := models.FindPlaylist(tx, id)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return pkgerr.Wrap(err, "fetch playlist from db")
+			}
+			return errs.NewNotFoundError(err)
+		}
+		if playlist.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
+		}
+
+		playlist.Public = r.Public
+
+		if r.Name == "" {
+			playlist.Name = null.NewString("", false)
+		} else {
+			playlist.Name = null.StringFrom(r.Name)
+		}
+
+		if r.Properties != nil {
+			props, err := json.Marshal(r.Properties)
+			if err != nil {
+				return pkgerr.Wrap(err, "json.Marshal properties")
+			}
+			playlist.Properties = null.JSONFrom(props)
+		}
+
+		_, err = playlist.Update(tx, boil.Whitelist(models.PlaylistColumns.Name,
+			models.PlaylistColumns.Public,
+			models.PlaylistColumns.Properties))
+		if err != nil {
+			return pkgerr.Wrap(err, "update DB")
+		}
+
+		resp = makePlaylistDTO(playlist)
+
+		return nil
 	})
 
-	concludeRequest(c, playlistResponse{Playlist: pl, PlaylistItems: pl.R.PlaylistItems}, nil)
+	concludeRequest(c, resp, err)
 }
 
-func (a *App) handleGetPlaylistItems(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-		return
-	}
-	defer closeTransaction(tx, nil)
-	a.getPlaylistItems(c, tx)
-}
-
-func (a *App) getPlaylistItems(c *gin.Context, tx boil.Executor) {
-	kcId := c.MustGet("KC_ID").(string)
-	mods := []qm.QueryMod{
-		qm.InnerJoin("playlist pl ON pl.id = playlist_id"),
-		qm.Where("pl.account_id = ?", kcId),
-		qm.OrderBy("position DESC"),
-	}
-
-	var req playListItemRequest
-	if err := c.Bind(&req); err != nil {
-		NewBadRequestError(err).Abort(c)
-	}
-	if req.PlayListIds != nil {
-		mods = append(mods, qm.WhereIn("pl.id IN ?", req.PlayListIds))
-	}
-	if len(req.UIDs) > 0 {
-		mods = append(mods, qm.WhereIn("content_unit_uid IN ?", utils.ConvertArgsString(req.UIDs)...))
-	}
-
-	plis, err := models.PlaylistItems(mods...).All(tx)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-	}
-
-	concludeRequest(c, playlistItemResponse{PlaylistItems: plis}, NewInternalError(err))
-}
-
-func (a *App) handleAddToPlaylist(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-		return
-	}
-	pls, httpErr := a.addToPlaylist(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, pls, httpErr)
-}
-
-func (a *App) addToPlaylist(c *gin.Context, tx boil.Executor) (*models.PlaylistItemSlice, *HttpError) {
+func (a *App) handleDeletePlaylist(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		return nil, NewBadRequestError(err)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
 	}
-	kcId := c.MustGet("KC_ID").(string)
 
-	pl, err := models.Playlists(qm.Load("PlaylistItems"), qm.Where("id = ?", id)).One(tx)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		playlist, err := models.FindPlaylist(tx, id)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return pkgerr.Wrap(err, "fetch playlist from db")
+			}
+			return errs.NewNotFoundError(err)
+		}
+		if playlist.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
+		}
+
+		if _, err := playlist.Delete(tx); err != nil {
+			return pkgerr.Wrap(err, "delete playlist from db")
+		}
+
+		return nil
+	})
+
+	concludeRequest(c, nil, err)
+}
+
+func (a *App) handleAddPlaylistItems(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		return nil, NewInternalError(err)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
 	}
 
-	if kcId != pl.AccountID {
-		err := errors.New("playlist is forbidden")
-		return nil, NewHttpError(http.StatusForbidden, err, gin.ErrorTypePrivate)
+	var r AddPlaylistItemsRequest
+	if c.BindJSON(&r) != nil {
+		return
 	}
 
-	var req UIDsRequest
-	if err := c.Bind(&req); err != nil {
-		return nil, NewBadRequestError(err)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
 	}
-	hasUnit := false
-	for _, x := range pl.R.PlaylistItems {
-		for _, nuid := range req.UIDs {
-			if x.ContentUnitUID == nuid {
-				hasUnit = true
-				break
+
+	var resp interface{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		playlist, err := models.FindPlaylist(tx, id)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return pkgerr.Wrap(err, "fetch playlist from db")
+			}
+			return errs.NewNotFoundError(err)
+		}
+		if playlist.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
+		}
+
+		items := make([]*models.PlaylistItem, len(r.Items))
+		for i, item := range r.Items {
+			items[i] = &models.PlaylistItem{
+				Position:       item.Position,
+				ContentUnitUID: item.ContentUnitUID,
 			}
 		}
-	}
-	if hasUnit {
-		return nil, NewBadRequestError(errors.New("has unit on playlist"))
-	}
 
-	for _, nuid := range req.UIDs {
-		item := models.PlaylistItem{PlaylistID: id, ContentUnitUID: nuid}
-		if err := item.Insert(tx, boil.Infer()); err != nil {
-			return nil, NewInternalError(err)
+		// enforce max playlist length
+		total, err := models.PlaylistItems(models.PlaylistItemWhere.PlaylistID.EQ(id)).Count(tx)
+		if err != nil {
+			return pkgerr.Wrap(err, "count items in db")
 		}
-	}
-	err = pl.R.PlaylistItems.ReloadAll(tx)
-	return &pl.R.PlaylistItems, NewInternalError(err)
+		if int(total)+len(items) > MaxPlaylistSize {
+			return errs.NewBadRequestError(fmt.Errorf("max playlist size is %d", MaxPlaylistSize))
+		}
+
+		if err := playlist.AddPlaylistItems(tx, true, items...); err != nil {
+			return pkgerr.Wrap(err, "insert items to db")
+		}
+
+		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
+			return pkgerr.Wrap(err, "reload playlist items from db")
+		}
+		resp = makePlaylistDTO(playlist)
+
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
 }
 
 func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
-		return
-	}
-	pi, httpErr := a.updatePlaylistItems(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, pi, httpErr)
-}
-
-func (a *App) updatePlaylistItems(c *gin.Context, tx boil.Executor) (*models.PlaylistItem, *HttpError) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		return nil, NewBadRequestError(err)
-	}
-	kcId := c.MustGet("KC_ID").(string)
-	pi, err := models.PlaylistItems(
-		qm.InnerJoin("playlist pl ON pl.id = playlist_id"),
-		qm.Where("\"playlist_item\".id = ? AND pl.account_id = ?", id, kcId),
-	).One(tx)
-	if err != nil {
-		return nil, NewInternalError(err)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
 	}
 
-	var req models.PlaylistItem
-	if err := c.Bind(&req); err != nil {
-		return nil, NewBadRequestError(err)
+	var r UpdatePlaylistItemsRequest
+	if c.BindJSON(&r) != nil {
+		return
 	}
-	if pi.Position != req.Position {
-		pi.Position = req.Position
-		_, err = pi.Update(tx, boil.Whitelist("position"))
+
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	var resp interface{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		playlist, err := models.FindPlaylist(tx, id)
 		if err != nil {
-			return nil, NewInternalError(err)
+			if err != sql.ErrNoRows {
+				return pkgerr.Wrap(err, "fetch playlist from db")
+			}
+			return errs.NewNotFoundError(err)
 		}
-		err = pi.Reload(tx)
-	}
-	return pi, NewInternalError(err)
+		if playlist.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
+		}
+
+		for _, itemInfo := range r.Items {
+			item, err := models.FindPlaylistItem(tx, itemInfo.ID)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return pkgerr.Wrap(err, "fetch playlist item from db")
+				}
+				return errs.NewNotFoundError(err)
+			}
+			if playlist.ID != item.PlaylistID {
+				return errs.NewNotFoundError(errors.New("parent playlist mismatch"))
+			}
+
+			item.Position = itemInfo.Position
+			item.ContentUnitUID = itemInfo.ContentUnitUID
+			if _, err := item.Update(tx, boil.Whitelist(models.PlaylistItemColumns.Position,
+				models.PlaylistItemColumns.ContentUnitUID)); err != nil {
+				return pkgerr.Wrap(err, "update playlist item in db")
+			}
+		}
+
+		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
+			return pkgerr.Wrap(err, "reload playlist items from db")
+		}
+		resp = makePlaylistDTO(playlist)
+
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
 }
 
-func (a *App) handleDeleteFromPlaylist(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
+func (a *App) handleRemovePlaylistItems(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
 		return
 	}
-	httpErr := a.deleteFromPlaylist(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, nil, httpErr)
-}
 
-func (a *App) deleteFromPlaylist(c *gin.Context, tx boil.Executor) *HttpError {
-	kcId := c.MustGet("KC_ID").(string)
-	mods := []qm.QueryMod{
-		qm.InnerJoin("playlist pl ON  pl.id = \"playlist_item\".playlist_id"),
-		qm.Where("pl.account_id = ?", kcId),
-	}
-
-	var req DeletePlaylistItemRequest
-	if err := c.Bind(&req); err != nil {
-		return NewBadRequestError(err)
-	}
-	if len(req.UIDs) > 0 && req.PlaylistId > 0 {
-		mods = append(mods, qm.WhereIn("\"playlist_item\".content_unit_uid IN ?", utils.ConvertArgsString(req.UIDs)...), qm.Where("pl.id = ?", req.PlaylistId))
-	}
-
-	if len(req.IDs) > 0 {
-		mods = append(mods, qm.WhereIn("\"playlist_item\".id IN ?", utils.ConvertArgsInt64(req.IDs)...))
-	}
-
-	plis, err := models.PlaylistItems(mods...).All(tx)
-	if err != nil {
-		return NewInternalError(err)
-	}
-	_, err = plis.DeleteAll(tx)
-	return NewInternalError(err)
-}
-
-//Likes handlers
-func (a *App) handleGetLikes(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	var r RemovePlaylistItemsRequest
+	if c.BindJSON(&r) != nil {
 		return
 	}
-	defer closeTransaction(tx, nil)
-	a.getLikes(c, tx)
+
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	var resp interface{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		playlist, err := models.FindPlaylist(tx, id)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return pkgerr.Wrap(err, "fetch playlist from db")
+			}
+			return errs.NewNotFoundError(err)
+		}
+		if playlist.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
+		}
+
+		for _, itemID := range r.IDs {
+			item, err := models.FindPlaylistItem(tx, itemID)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return pkgerr.Wrap(err, "fetch playlist item from db")
+				}
+				return errs.NewNotFoundError(err)
+			}
+			if playlist.ID != item.PlaylistID {
+				return errs.NewNotFoundError(errors.New("parent playlist mismatch"))
+			}
+
+			if _, err := item.Delete(tx); err != nil {
+				return pkgerr.Wrap(err, "delete playlist item from db")
+			}
+		}
+
+		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
+			return pkgerr.Wrap(err, "reload playlist items from db")
+		}
+		resp = makePlaylistDTO(playlist)
+
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
 }
 
-func (a *App) getLikes(c *gin.Context, tx boil.Executor) {
-	kcId := c.MustGet("KC_ID").(string)
-	var list ListRequest
-	if err := c.Bind(&list); err != nil {
-		NewBadRequestError(err).Abort(c)
+// Reactions handlers
+func (a *App) handleGetReactions(c *gin.Context) {
+	var r GetReactionsRequest
+	if c.Bind(&r) != nil {
+		return
 	}
 
-	mods := []qm.QueryMod{qm.Where("account_id = ?", kcId)}
-	appendByCUMods(&mods, c)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
 
-	total, err := models.Likes(mods...).Count(tx)
+	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
+	appendCUUIDsFilter(&mods, r.UIDsFilter)
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	total, err := models.Reactions(mods...).Count(db)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
 	}
 
-	if err := appendMyListMods(&mods, list); err != nil {
-		NewInternalError(err).Abort(c)
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(ReactionsResponse), nil)
+		return
 	}
 
-	ls, err := models.Likes(mods...).All(tx)
+	items, err := models.Reactions(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
 
-	resp := likesResponse{
-		Likes:        ls,
+	resp := &ReactionsResponse{
+		Items:        make([]*Reaction, len(items)),
 		ListResponse: ListResponse{Total: total},
 	}
-	concludeRequest(c, resp, NewInternalError(err))
+	for i, x := range items {
+		resp.Items[i] = &Reaction{
+			Kind:        x.Kind,
+			SubjectType: x.SubjectType,
+			SubjectUID:  x.SubjectUID,
+		}
+	}
+
+	concludeRequest(c, resp, nil)
 }
 
-func (a *App) handleAddLikes(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+func (a *App) handleAddReactions(c *gin.Context) {
+	var r AddReactionsRequest
+	if c.BindJSON(&r) != nil {
 		return
 	}
-	likes, httpErr := a.addLikes(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, likes, httpErr)
-}
 
-func (a *App) addLikes(c *gin.Context, tx *sql.Tx) ([]*models.Like, *HttpError) {
-	kcId := c.MustGet("KC_ID").(string)
-	var req UIDsRequest
-	if c.Bind(&req) != nil {
-		return nil, NewBadRequestError(nil)
-	}
-
-	var likes []*models.Like
-	var err error
-	for _, uid := range req.UIDs {
-		l := models.Like{
-			AccountID:      kcId,
-			ContentUnitUID: uid,
-		}
-		err = l.Insert(tx, boil.Infer())
-		if err != nil {
-			break
-		}
-		likes = append(likes, &l)
-	}
-	return likes, NewInternalError(err)
-}
-
-func (a *App) handleDeleteLikes(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
 		return
 	}
-	httpErr := a.deleteLikes(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, nil, httpErr)
+
+	var resp interface{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		reaction := models.Reaction{
+			UserID:      user.ID,
+			Kind:        r.Kind,
+			SubjectType: r.SubjectType,
+			SubjectUID:  r.SubjectUID,
+		}
+		if err := reaction.Insert(tx, boil.Infer()); err != nil {
+			return pkgerr.WithStack(err)
+		}
+
+		resp = Reaction{
+			Kind:        reaction.Kind,
+			SubjectType: reaction.SubjectType,
+			SubjectUID:  reaction.SubjectUID,
+		}
+
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
 }
 
-func (a *App) deleteLikes(c *gin.Context, tx boil.Executor) *HttpError {
-	kcId := c.MustGet("KC_ID").(string)
-
-	var ids IDsRequest
-	if err := c.Bind(&ids); err != nil {
-		return NewBadRequestError(err)
-	}
-	ls, err := models.Likes(
-		qm.WhereIn("id in ?", utils.ConvertArgsInt64(ids.IDs)...),
-		qm.Where("account_id = ?", kcId),
-	).All(tx)
-	if err != nil {
-		return NewInternalError(err)
+func (a *App) handleRemoveReactions(c *gin.Context) {
+	var r RemoveReactionsRequest
+	if c.BindJSON(&r) != nil {
+		return
 	}
 
-	_, err = ls.DeleteAll(tx)
-	return NewInternalError(err)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		_, err := models.Reactions(models.ReactionWhere.UserID.EQ(user.ID),
+			models.ReactionWhere.Kind.EQ(r.Kind),
+			models.ReactionWhere.SubjectType.EQ(r.SubjectType),
+			models.ReactionWhere.SubjectUID.EQ(r.SubjectUID)).DeleteAll(tx)
+		return err
+	})
+
+	concludeRequest(c, nil, err)
 }
 
 func (a *App) handleLikeCount(c *gin.Context) {
-	var req UIDsRequest
+	// TODO: count per kind
+	var req UIDsFilter
 	if c.Bind(&req) != nil {
-		NewBadRequestError(nil).Abort(c)
+		return
 	}
 
 	var mods []qm.QueryMod
@@ -506,221 +606,214 @@ func (a *App) handleLikeCount(c *gin.Context) {
 		mods = append(mods, qm.WhereIn("content_unit_uid in ?", utils.ConvertArgsString(req.UIDs)...))
 	}
 
-	count, err := models.Likes(mods...).Count(a.DB)
-	concludeRequest(c, count, NewInternalError(err))
+	count, err := models.Reactions(mods...).Count(a.DB)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	concludeRequest(c, count, nil)
 }
 
 //History handlers
 func (a *App) handleGetHistory(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	var r GetHistoryRequest
+	if c.Bind(&r) != nil {
 		return
 	}
-	defer closeTransaction(tx, nil)
-	a.getHistory(c, tx)
-}
 
-func (a *App) getHistory(c *gin.Context, tx boil.Executor) {
-	kcId := c.MustGet("KC_ID").(string)
-	mods := []qm.QueryMod{qm.Where("account_id = ?", kcId)}
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
 
-	total, err := models.Histories(mods...).Count(tx)
+	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	total, err := models.Histories(mods...).Count(db)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
 	}
 
-	var list ListRequest
-	if c.Bind(&list) != nil {
-		NewBadRequestError(nil).Abort(c)
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(ReactionsResponse), nil)
+		return
 	}
-	if err := appendMyListMods(&mods, list); err != nil {
-		NewInternalError(err).Abort(c)
-	}
-	history, err := models.Histories(mods...).All(tx)
 
-	res := historyResponse{
-		History:      history,
+	items, err := models.Histories(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	// TODO: make sure items are compacted on null values (JSON marshal)
+	resp := &HistoryResponse{
+		Items:        make([]*History, len(items)),
 		ListResponse: ListResponse{Total: total},
 	}
-	concludeRequest(c, res, NewInternalError(err))
+	for i, x := range items {
+		resp.Items[i] = &History{
+			ID:             x.ID,
+			ContentUnitUID: x.ContentUnitUID,
+			Data:           x.Data,
+			Timestamp:      x.ChroniclesTimestamp,
+			CreatedAt:      x.CreatedAt,
+		}
+	}
+
+	concludeRequest(c, resp, nil)
 }
 
 func (a *App) handleDeleteHistory(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
 		return
 	}
-	httpErr := a.deleteHistory(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, nil, httpErr)
-}
 
-func (a *App) deleteHistory(c *gin.Context, tx boil.Executor) *HttpError {
-	kcId := c.MustGet("KC_ID").(string)
-	var ids IDsRequest
-	if err := c.Bind(&ids); err != nil {
-		return NewBadRequestError(err)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
 	}
 
-	history, err := models.Histories(
-		qm.WhereIn("id in ?", utils.ConvertArgsInt64(ids.IDs)...),
-		qm.Where("account_id = ?", kcId),
-	).All(tx)
-	if err != nil {
-		return NewInternalError(err)
-	}
-	_, err = history.DeleteAll(tx)
-	return NewInternalError(err)
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		_, err := models.Histories(models.HistoryWhere.UserID.EQ(user.ID), models.HistoryWhere.ID.EQ(id)).DeleteAll(tx)
+		return err
+	})
+
+	concludeRequest(c, nil, err)
 }
 
 //Subscriptions handlers
 
 func (a *App) handleGetSubscriptions(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	var r GetSubscriptionsRequest
+	if c.Bind(&r) != nil {
 		return
 	}
-	a.getSubscriptions(c, tx)
-	closeTransaction(tx, nil)
-}
 
-func (a *App) getSubscriptions(c *gin.Context, tx boil.Executor) {
-	kcId := c.MustGet("KC_ID").(string)
-	mods := []qm.QueryMod{qm.Where("account_id = ?", kcId)}
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
 
-	total, err := models.Subscriptions(mods...).Count(tx)
+	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	total, err := models.Subscriptions(mods...).Count(db)
 	if err != nil {
-		NewInternalError(err).Abort(c)
-	}
-	var list ListRequest
-	if err := c.Bind(&list); err != nil {
-		NewBadRequestError(err).Abort(c)
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
 	}
 
-	if list.OrderBy == "" {
-		list.OrderBy = "updated_at DESC"
+	if r.OrderBy == "" {
+		r.OrderBy = "updated_at DESC"
 	}
-	if err := appendMyListMods(&mods, list); err != nil {
-		NewInternalError(err).Abort(c)
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(ReactionsResponse), nil)
+		return
 	}
-	subs, err := models.Subscriptions(mods...).All(tx)
 
-	resp := subscriptionsResponse{
-		Subscriptions: subs,
-		ListResponse:  ListResponse{Total: total},
+	items, err := models.Subscriptions(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
 	}
-	concludeRequest(c, resp, NewInternalError(err))
+
+	resp := &SubscriptionsResponse{
+		Items:        make([]*Subscription, len(items)),
+		ListResponse: ListResponse{Total: total},
+	}
+	for i, x := range items {
+		resp.Items[i] = &Subscription{
+			ID:             x.ID,
+			CollectionUID:  x.CollectionUID,
+			ContentType:    x.ContentType,
+			ContentUnitUID: x.ContentUnitUID,
+			CreatedAt:      x.CreatedAt,
+			UpdatedAt:      x.UpdatedAt,
+		}
+	}
+
+	concludeRequest(c, resp, nil)
 }
 
 func (a *App) handleSubscribe(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
-	if err != nil {
-		NewInternalError(err).Abort(c)
+	var r SubscribeRequest
+	if c.BindJSON(&r) != nil {
 		return
 	}
-	subs, httpErr := a.subscribe(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, subs, httpErr)
-}
 
-func (a *App) subscribe(c *gin.Context, tx boil.Executor) ([]*models.Subscription, *HttpError) {
-	kcId := c.MustGet("KC_ID").(string)
-	var req subscribeRequest
-	if err := c.Bind(&req); err != nil {
-		return nil, NewBadRequestError(err)
-	}
-	var subs []*models.Subscription
-	for _, uid := range req.Collections {
-		if uid == "" {
-			continue
-		}
-		s := models.Subscription{
-			AccountID:      kcId,
-			CollectionUID:  null.String{String: uid, Valid: true},
-			ContentUnitUID: req.ContentUnitUID,
-		}
-		subs = append(subs, &s)
+	if r.CollectionUID != "" && r.ContentType != "" {
+		errs.NewBadRequestError(errors.New("collection_uid and content_type are mutually exclusive")).Abort(c)
+		return
 	}
 
-	for _, t := range req.ContentTypes {
-		if t == "" {
-			continue
-		}
-		s := models.Subscription{
-			AccountID:      kcId,
-			ContentType:    null.String{String: t, Valid: true},
-			ContentUnitUID: req.ContentUnitUID,
-		}
-		subs = append(subs, &s)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
 	}
-	if len(subs) == 0 {
-		return subs, NewBadRequestError(errors.New("must add or collection or CU type for subscribe"))
-	}
-	var err error
-	for _, s := range subs {
-		err = s.Insert(tx, boil.Infer())
-		if err != nil {
-			break
+
+	var resp interface{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		subscription := models.Subscription{
+			UserID:         user.ID,
+			CollectionUID:  null.NewString(r.CollectionUID, r.CollectionUID != ""),
+			ContentType:    null.NewString(r.ContentType, r.ContentType != ""),
+			ContentUnitUID: null.NewString(r.ContentUnitUID, r.ContentUnitUID != ""),
 		}
-	}
-	return subs, NewInternalError(err)
+		if err := subscription.Insert(tx, boil.Infer()); err != nil {
+			return pkgerr.WithStack(err)
+		}
+
+		resp = Subscription{
+			ID:             subscription.ID,
+			CollectionUID:  subscription.CollectionUID,
+			ContentType:    subscription.ContentType,
+			ContentUnitUID: subscription.ContentUnitUID,
+			CreatedAt:      subscription.CreatedAt,
+		}
+
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
 }
 
 func (a *App) handleUnsubscribe(c *gin.Context) {
-	tx, err := openTransaction(a.DB)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
-		NewInternalError(err).Abort(c)
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
 		return
 	}
-	httpErr := a.unsubscribe(c, tx)
-	closeTransaction(tx, httpErr)
-	concludeRequest(c, nil, httpErr)
-}
 
-func (a *App) unsubscribe(c *gin.Context, tx boil.Executor) *HttpError {
-	kcId := c.MustGet("KC_ID").(string)
-	var req IDsRequest
-	if err := c.Bind(&req); err != nil {
-		return NewBadRequestError(err)
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
 	}
-	subs, err := models.Subscriptions(
-		qm.WhereIn("id in ?", utils.ConvertArgsInt64(req.IDs)...),
-		qm.Where("account_id = ?", kcId),
-	).All(tx)
-	if err != nil {
-		return NewInternalError(err)
-	}
-	_, err = subs.DeleteAll(tx)
-	return NewInternalError(err)
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		_, err := models.Subscriptions(models.HistoryWhere.UserID.EQ(user.ID), models.SubscriptionWhere.ID.EQ(id)).DeleteAll(tx)
+		return err
+	})
+
+	concludeRequest(c, nil, err)
 }
 
 //help functions
 
-func openTransaction(db *sql.DB) (*sql.Tx, error) {
-	log.Info("open transaction")
-	tx, err := db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	return tx, nil
-}
-
-func closeTransaction(tx *sql.Tx, err *HttpError) {
-	log.Info("close transaction")
-	if err == nil || err.Err == nil {
-		_ = tx.Commit()
-	} else {
-		_ = tx.Rollback()
-	}
-}
-
-func appendMyListMods(mods *[]qm.QueryMod, r ListRequest) error {
-	// group to remove duplicates
-	*mods = append(*mods, qm.GroupBy("id"))
-
+func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	if r.OrderBy != "" {
 		*mods = append(*mods, qm.OrderBy(r.OrderBy))
 	} else {
@@ -729,7 +822,6 @@ func appendMyListMods(mods *[]qm.QueryMod, r ListRequest) error {
 
 	var limit, offset int
 
-	// pagination style
 	if r.PageSize == 0 {
 		limit = DefaultPageSize
 	} else {
@@ -744,58 +836,60 @@ func appendMyListMods(mods *[]qm.QueryMod, r ListRequest) error {
 		*mods = append(*mods, qm.Offset(offset))
 	}
 
-	return nil
+	return limit, offset
 }
 
-func appendByCUMods(mods *[]qm.QueryMod, c *gin.Context) {
-	var req UIDsRequest
-	if err := c.Bind(&req); err != nil {
-		log.Info("request without content units uids")
+func appendCUUIDsFilter(mods *[]qm.QueryMod, f UIDsFilter) {
+	if len(f.UIDs) > 0 {
+		*mods = append(*mods, qm.WhereIn("content_unit_uid in ?", utils.ConvertArgsString(f.UIDs)...))
+	}
+}
+
+func concludeRequest(c *gin.Context, resp interface{}, err error) {
+	if err != nil {
+		var hErr *errs.HttpError
+		if errors.As(err, &hErr) {
+			hErr.Abort(c)
+		} else {
+			errs.NewInternalError(err).Abort(c)
+		}
 		return
 	}
-	if len(req.UIDs) > 0 {
-		*mods = append(*mods, qm.WhereIn("content_unit_uid in ?", utils.ConvertArgsString(req.UIDs)...))
-	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
-func buildNewParams(newp, oldp *models.Playlist) ([]byte, error) {
-	if !newp.Parameters.Valid {
-		return nil, nil
+func makePlaylistDTO(playlist *models.Playlist) *Playlist {
+	resp := Playlist{
+		ID:        playlist.ID,
+		UID:       playlist.UID,
+		UserID:    playlist.UserID,
+		Public:    playlist.Public,
+		CreatedAt: playlist.CreatedAt,
+	}
+	if playlist.Name.Valid {
+		resp.Name = playlist.Name.String
+	}
+	if playlist.Properties.Valid {
+		utils.Must(playlist.Properties.Unmarshal(&resp.Properties))
 	}
 
-	var nParams map[string]interface{}
-	if err := newp.Parameters.Unmarshal(&nParams); err != nil {
-		return nil, NewBadRequestError(err)
-	}
-	if len(nParams) == 0 {
-		return nil, nil
-	}
+	if playlist.R != nil && len(playlist.R.PlaylistItems) > 0 {
+		resp.TotalItems = len(playlist.R.PlaylistItems)
 
-	var params map[string]interface{}
-	if oldp.Parameters.Valid {
-		if err := oldp.Parameters.Unmarshal(&params); err != nil {
-			return nil, err
+		resp.Items = make([]*PlaylistItem, resp.TotalItems)
+		sort.SliceStable(playlist.R.PlaylistItems, func(i int, j int) bool {
+			return playlist.R.PlaylistItems[i].Position < playlist.R.PlaylistItems[j].Position
+		})
+
+		for i, item := range playlist.R.PlaylistItems {
+			resp.Items[i] = &PlaylistItem{
+				ID:             item.ID,
+				Position:       item.Position,
+				ContentUnitUID: item.ContentUnitUID,
+			}
 		}
-
-		for k, v := range nParams {
-			params[k] = v
-		}
-	} else {
-		params = nParams
 	}
 
-	fpa, err := json.Marshal(params)
-	if err != nil {
-		return nil, err
-	}
-
-	return fpa, nil
-}
-
-func concludeRequest(c *gin.Context, resp interface{}, err *HttpError) {
-	if err == nil {
-		c.JSON(http.StatusOK, resp)
-	} else {
-		err.Abort(c)
-	}
+	return &resp
 }

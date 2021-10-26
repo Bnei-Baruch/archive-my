@@ -3,8 +3,10 @@ package testutil
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -13,130 +15,238 @@ import (
 	"github.com/golang-migrate/migrate/database/postgres"
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/lib/pq"
-	"github.com/spf13/viper"
+	pkgerr "github.com/pkg/errors"
 	_ "github.com/stretchr/testify"
+	"gopkg.in/khaiql/dbcleaner.v2"
+	"gopkg.in/khaiql/dbcleaner.v2/engine"
 
-	migrations "archive-my/mdb_migrations"
-	"archive-my/pkg/utils"
+	"github.com/Bnei-Baruch/archive-my/common"
+	mdb_migrations "github.com/Bnei-Baruch/archive-my/databases/mdb/migrations"
+	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
-type TestDBManager struct {
-	DB      *sql.DB
-	MDB     *sql.DB
-	testDB  string
-	testMDB string
+type TestMyDBManager struct {
+	DB        *sql.DB
+	Name      string
+	DSN       string
+	DBCleaner dbcleaner.DbCleaner
 }
 
-func (m *TestDBManager) InitTestDB() (string, string, error) {
+func (m *TestMyDBManager) Init() error {
 	//boil.DebugMode = true
 
-	var mdbDs string
-	var dbDs string
-	if db, dsn, name, err := m.initDB(false); err != nil {
-		return "", "", err
-	} else {
-		m.DB = db
-		m.testDB = name
-		dbDs = dsn
-	}
+	m.Name = fmt.Sprintf("test_%s", strings.ToLower(utils.GenerateName(5)))
+	fmt.Println("Initializing test MyDB: ", m.Name)
 
-	if db, dsn, name, err := m.initDB(true); err != nil {
-		return "", "", err
-	} else {
-		m.MDB = db
-		m.testMDB = name
-		mdbDs = dsn
-	}
-	err := utils.InitCT(m.MDB)
-	return dbDs, mdbDs, err
-}
-
-func (m *TestDBManager) initDB(isMDB bool) (*sql.DB, string, string, error) {
-	prefix := ""
-	if isMDB {
-		prefix = "_mdb"
-	}
-	name := fmt.Sprintf("test%s_%s", prefix, strings.ToLower(utils.GenerateName(5)))
-	fmt.Println("Initializing test DB: ", name)
 	// Open connection
-	db, err := sql.Open("postgres", viper.GetString("app.mydb"))
+	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	if err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "sql.Open")
 	}
 
 	// Create a new temporary test database
-	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s", name)); err != nil {
-		return nil, "", "", err
+	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "create database")
 	}
 
 	// Close first connection
 	if err := db.Close(); err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "db.Close")
 	}
 
 	// Connect to temp database and run migrations
-	ds := viper.GetString("app.mydb")
-	if isMDB {
-		ds = viper.GetString("app.mdb_test")
-	}
-	dsn, err := m.replaceDBName(name, ds)
+	m.DSN, err = replaceDBName(m.Name, common.Config.MyDBUrl)
 	if err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "replaceDBName")
 	}
 
-	if !isMDB {
-		if err := m.runMigrations(dsn); err != nil {
-			return nil, "", "", err
-		}
+	if err := runMigrate(m.DSN); err != nil {
+		return pkgerr.Wrap(err, "run migrations")
 	}
 
-	db, err = sql.Open("postgres", dsn)
+	m.DB, err = sql.Open("postgres", m.DSN)
 	if err != nil {
-		return nil, "", "", err
+		return pkgerr.Wrap(err, "sql.Open temporary DB")
 	}
 
-	if isMDB {
-		if err := m.runMDBMigrations(db); err != nil {
-			return nil, "", "", err
-		}
+	tmpDir, err := ioutil.TempDir("", "dbcleaner_mydb")
+	if err != nil {
+		return pkgerr.Wrap(err, "tmp dir for dbcleaner")
 	}
+	m.DBCleaner = dbcleaner.New(
+		dbcleaner.SetLockFileDir(tmpDir),
+	)
+	m.DBCleaner.SetEngine(engine.NewPostgresEngine(m.DSN))
 
-	return db, dsn, name, nil
+	return nil
 }
 
-func (m *TestDBManager) DestroyTestDB() error {
-	fmt.Println("Destroying testDB: ", m.testDB)
+func (m *TestMyDBManager) Destroy() error {
+	fmt.Println("Destroying test MyDB: ", m.Name)
 
-	if err := m.destroyDB(m.DB, m.testDB); err != nil {
-		return err
+	// Close DB cleaner
+	if err := m.DBCleaner.Close(); err != nil {
+		return pkgerr.Wrap(err, "DBCleaner.Close")
 	}
-	return m.destroyDB(m.MDB, m.testMDB)
-}
-
-func (m *TestDBManager) destroyDB(db *sql.DB, name string) error {
-	fmt.Println("Destroying testDB: ", name)
 
 	// Close temp DB
-	if err := db.Close(); err != nil {
-		return err
+	if err := m.DB.Close(); err != nil {
+		return pkgerr.Wrap(err, "DB.Close")
 	}
 
 	// Connect to main dev DB
-	db, err := sql.Open("postgres", viper.GetString("app.mydb"))
+	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	if err != nil {
-		return err
+		return pkgerr.Wrap(err, "sql.Open dev DB")
 	}
 
 	// Drop test DB
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE %s", name))
-	if err != nil {
-		return err
+	if _, err = db.Exec(fmt.Sprintf("DROP DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "drop database")
 	}
 
 	return nil
 }
 
-func (m *TestDBManager) runMigrations(dsn string) error {
+func (m *TestMyDBManager) AllTables() []string {
+	v := reflect.ValueOf(models.TableNames)
+	t := v.Type()
+	tables := make([]string, 0)
+	for i := 0; i < t.NumField(); i++ {
+		name := t.Field(i).Name
+		value := v.FieldByName(name).Interface()
+		if value.(string) != models.TableNames.SchemaMigrations {
+			tables = append(tables, value.(string))
+		}
+	}
+	return tables
+}
+
+type TestMDBManager struct {
+	DB        *sql.DB
+	Name      string
+	DSN       string
+	DBCleaner dbcleaner.DbCleaner
+}
+
+func (m *TestMDBManager) Init() error {
+	m.Name = fmt.Sprintf("test_mdb_%s", strings.ToLower(utils.GenerateName(5)))
+	fmt.Println("Initializing test DB [mdb]: ", m.Name)
+
+	// Open connection
+	db, err := sql.Open("postgres", common.Config.MDBUrl)
+	if err != nil {
+		return pkgerr.Wrap(err, "sql.Open")
+	}
+
+	// Create a new temporary test database
+	if _, err := db.Exec(fmt.Sprintf("CREATE DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "create database")
+	}
+
+	// Close first connection
+	if err := db.Close(); err != nil {
+		return pkgerr.Wrap(err, "db.Close")
+	}
+
+	// Connect to temp database and run migrations
+	m.DSN, err = replaceDBName(m.Name, common.Config.MDBUrl)
+	if err != nil {
+		return pkgerr.Wrap(err, "replaceDBName")
+	}
+
+	m.DB, err = sql.Open("postgres", m.DSN)
+	if err != nil {
+		return pkgerr.Wrap(err, "sql.Open temporary DB")
+	}
+
+	if err := runRambler(m.DB); err != nil {
+		return pkgerr.Wrap(err, "run migrations")
+	}
+
+	tmpDir, err := ioutil.TempDir("", "dbcleaner_mdb")
+	if err != nil {
+		return pkgerr.Wrap(err, "tmp dir for dbcleaner")
+	}
+	m.DBCleaner = dbcleaner.New(
+		dbcleaner.SetLockFileDir(tmpDir),
+	)
+	m.DBCleaner.SetEngine(engine.NewPostgresEngine(m.DSN))
+
+	return nil
+}
+
+func (m *TestMDBManager) Destroy() error {
+	fmt.Println("Destroying test MDB: ", m.Name)
+
+	// Close DB cleaner
+	if err := m.DBCleaner.Close(); err != nil {
+		return pkgerr.Wrap(err, "DBCleaner.Close")
+	}
+
+	// Close temp DB
+	if err := m.DB.Close(); err != nil {
+		return pkgerr.Wrap(err, "DB.Close")
+	}
+
+	// Connect to main dev DB
+	db, err := sql.Open("postgres", common.Config.MDBUrl)
+	if err != nil {
+		return pkgerr.Wrap(err, "sql.Open dev DB")
+	}
+
+	// Drop test DB
+	if _, err = db.Exec(fmt.Sprintf("DROP DATABASE %s", m.Name)); err != nil {
+		return pkgerr.Wrap(err, "drop database")
+	}
+
+	return nil
+}
+
+func (m *TestMDBManager) AllTables() []string {
+	// hard coded since currently we don't reuse mdb golang models
+	// see https://github.com/Bnei-Baruch/mdb/blob/master/models/boil_table_names.go
+	return []string{
+		"author_i18n",
+		"authors",
+		"authors_sources",
+		"blog_posts",
+		"blogs",
+		"collection_i18n",
+		"collections",
+		"collections_content_units",
+		"content_role_types",
+		//"content_types",  // holds data from migrations (don't clean each time)
+		"content_unit_derivations",
+		"content_unit_i18n",
+		"content_units",
+		"content_units_persons",
+		"content_units_publishers",
+		"content_units_sources",
+		"content_units_tags",
+		"files",
+		"files_operations",
+		"files_storages",
+		//"operation_types",  // holds data from migrations (don't clean each time)
+		"operations",
+		"person_i18n",
+		"persons",
+		"publisher_i18n",
+		"publishers",
+		"source_i18n",
+		"source_types",
+		"sources",
+		"storages",
+		"tag_i18n",
+		"tags",
+		"twitter_tweets",
+		"twitter_users",
+		"users",
+	}
+}
+
+func runMigrate(dsn string) error {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return err
@@ -148,7 +258,7 @@ func (m *TestDBManager) runMigrations(dsn string) error {
 	}
 
 	_, filename, _, _ := runtime.Caller(0)
-	rel := filepath.Join(filepath.Dir(filename), "..", "..", "migrations")
+	rel := filepath.Join(filepath.Dir(filename), "..", "..", "databases", "mydb", "migrations")
 	migrator, err := migrate.NewWithDatabaseInstance(fmt.Sprintf("file://%s", rel), "postgres", driver)
 	if err != nil {
 		return err
@@ -169,7 +279,35 @@ func (m *TestDBManager) runMigrations(dsn string) error {
 	return nil
 }
 
-func (m *TestDBManager) replaceDBName(tempName, dbStr string) (string, error) {
+func runRambler(db *sql.DB) error {
+	var visit = func(path string, f os.FileInfo, err error) error {
+		match, _ := regexp.MatchString(".*\\.sql$", path)
+		if !match {
+			return nil
+		}
+
+		//fmt.Printf("Applying migration %s\n", path)
+		m, err := mdb_migrations.NewMigration(path)
+		if err != nil {
+			fmt.Printf("Error migrating %s, %s", path, err.Error())
+			return err
+		}
+
+		for _, statement := range m.Up() {
+			if _, err := db.Exec(statement); err != nil {
+				return fmt.Errorf("Unable to apply migration %s: %s\nStatement: %s\n", m.Name, err, statement)
+			}
+		}
+
+		return nil
+	}
+
+	_, filename, _, _ := runtime.Caller(0)
+	rel := filepath.Join(filepath.Dir(filename), "..", "..", "databases", "mdb", "migrations")
+	return filepath.Walk(rel, visit)
+}
+
+func replaceDBName(tempName, dbStr string) (string, error) {
 	paramsStr, err := pq.ParseURL(dbStr)
 	if err != nil {
 		return "", err
@@ -187,32 +325,4 @@ func (m *TestDBManager) replaceDBName(tempName, dbStr string) (string, error) {
 		params = append(params, fmt.Sprintf("dbname=%s", tempName))
 	}
 	return strings.Join(params, " "), nil
-}
-
-func (m *TestDBManager) runMDBMigrations(db *sql.DB) error {
-	var visit = func(path string, f os.FileInfo, err error) error {
-		match, _ := regexp.MatchString(".*\\.sql$", path)
-		if !match {
-			return nil
-		}
-
-		//fmt.Printf("Applying migration %s\n", path)
-		m, err := migrations.NewMigration(path)
-		if err != nil {
-			fmt.Printf("Error migrating %s, %s", path, err.Error())
-			return err
-		}
-
-		for _, statement := range m.Up() {
-			if _, err := db.Exec(statement); err != nil {
-				return fmt.Errorf("Unable to apply migration %s: %s\nStatement: %s\n", m.Name, err, statement)
-			}
-		}
-
-		return nil
-	}
-
-	_, filename, _, _ := runtime.Caller(0)
-	rel := filepath.Join(filepath.Dir(filename), "..", "..", "mdb_migrations")
-	return filepath.Walk(rel, visit)
 }

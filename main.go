@@ -1,7 +1,7 @@
 package main
 
 import (
-	"archive-my/cmd"
+	"github.com/Bnei-Baruch/archive-my/cmd"
 )
 
 func main() {

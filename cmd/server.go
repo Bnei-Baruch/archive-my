@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"archive-my/api"
-	"archive-my/pkg/chronicles"
+	"github.com/Bnei-Baruch/archive-my/api"
+	"github.com/Bnei-Baruch/archive-my/lib/chronicles"
 )
 
 var serverCmd = &cobra.Command{
@@ -19,11 +19,11 @@ func init() {
 
 func serverFn(cmd *cobra.Command, args []string) {
 	a := new(api.App)
-	a.InitDeps()
-
-	chr := new(chronicles.Chronicles)
-	chr.Init("", "")
-	chr.Run()
-
+	a.Initialize()
 	a.Run()
+
+	// TODO: singleton comment + put inside App initialization
+	chr := new(chronicles.Chronicles)
+	chr.Init()
+	chr.Run()
 }
