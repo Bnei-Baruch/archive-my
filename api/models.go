@@ -71,6 +71,7 @@ type RemovePlaylistItemsRequest struct {
 type GetReactionsRequest struct {
 	ListRequest
 	UIDsFilter
+	SubjectType string `json:"subject_type" form:"subject_type" binding:"omitempty"`
 }
 
 type ReactionsResponse struct {

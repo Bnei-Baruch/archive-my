@@ -496,8 +496,18 @@ func (a *App) handleGetReactions(c *gin.Context) {
 		return
 	}
 
-	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
-	appendCUUIDsFilter(&mods, r.UIDsFilter)
+	mods := []qm.QueryMod{models.ReactionWhere.UserID.EQ(user.ID)}
+	if len(r.UIDs) > 0 {
+		if r.SubjectType == "" {
+			errs.NewBadRequestError(errors.New("missing field subject_type")).Abort(c)
+			return
+		}
+		mods = append(mods, models.ReactionWhere.SubjectUID.IN(r.UIDs))
+	}
+
+	if r.SubjectType != "" {
+		mods = append(mods, models.ReactionWhere.SubjectType.EQ(r.SubjectType))
+	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	total, err := models.Reactions(mods...).Count(db)
@@ -505,7 +515,9 @@ func (a *App) handleGetReactions(c *gin.Context) {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
 	}
-
+	if r.OrderBy == "" {
+		r.OrderBy = models.ReactionColumns.ID
+	}
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
 		concludeRequest(c, new(ReactionsResponse), nil)
@@ -869,12 +881,6 @@ func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	}
 
 	return limit, offset
-}
-
-func appendCUUIDsFilter(mods *[]qm.QueryMod, f UIDsFilter) {
-	if len(f.UIDs) > 0 {
-		*mods = append(*mods, qm.WhereIn("content_unit_uid in ?", utils.ConvertArgsString(f.UIDs)...))
-	}
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {
