@@ -138,7 +138,8 @@ func (c *Chronicles) Shutdown() {
 }
 
 func (c *Chronicles) lastChroniclesId() (string, error) {
-	//TODO: replace with max(chronicle_id) query
+	//TODO: replace with max(chronicle_id)
+	//TODO David query need log
 	h, err := models.Histories(qm.OrderBy("chronicle_id")).One(c.MyDB)
 	if err != nil {
 		if err == sql.ErrNoRows {
