@@ -15,7 +15,6 @@ import (
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/errs"
-	"github.com/Bnei-Baruch/archive-my/pkg/sqlutil"
 )
 
 type Roles struct {
@@ -151,8 +150,9 @@ func parseToken(r *http.Request) string {
 	return ""
 }
 
-func getOrCreateUser(db *sql.DB, claims *IDTokenClaims) (*models.User, error) {
-	user, err := models.Users(models.UserWhere.AccountsID.EQ(claims.Sub)).One(db)
+func getOrCreateUser(exec boil.Executor, claims *IDTokenClaims) (*models.User, error) {
+	//TODO: wrap in transaction
+	user, err := models.Users(models.UserWhere.AccountsID.EQ(claims.Sub)).One(exec)
 	if err == nil {
 		return user, nil
 	}
@@ -168,16 +168,8 @@ func getOrCreateUser(db *sql.DB, claims *IDTokenClaims) (*models.User, error) {
 		LastName:   null.StringFrom(claims.FamilyName),
 		Disabled:   false,
 	}
-	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		if err := user.Insert(tx, boil.Infer()); err != nil {
-			return pkgerr.Wrap(err, "create new user in DB")
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
+	if err := user.Insert(exec, boil.Infer()); err != nil {
+		return nil, pkgerr.Wrap(err, "create new user in DB")
 	}
-	err = user.Reload(db)
-	return user, err
+	return user, nil
 }
