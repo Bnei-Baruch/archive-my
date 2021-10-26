@@ -24,9 +24,7 @@ const (
 func (s *ChroniclesTestSuite) TestChronicles_byCO() {
 	user := s.CreateUser()
 	newUpdate := time.Now().UTC().Format(time.RFC3339)
-	coUID := s.CreateMDBCollection(s.MDB.DB, CT_CLIPS)
-	cuUID := s.CreateMDBContentUnit(s.MDB.DB, CT_CLIP)
-	s.AssociateCollectionAndUnit(s.MDB.DB, coUID, cuUID)
+	cuUID, coUID := s.CreateMDBContentUnit(s.MDB.DB, CT_CLIP)
 
 	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// TODO: assert request
@@ -59,7 +57,7 @@ func (s *ChroniclesTestSuite) TestChronicles_byType() {
 	user := s.CreateUser()
 	newUpdate := time.Now().UTC().Format(time.RFC3339)
 
-	cuUID := s.CreateMDBContentUnit(s.MDB.DB, CT_CLIP)
+	cuUID, _ := s.CreateMDBContentUnit(s.MDB.DB, CT_CLIP)
 
 	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// TODO: assert request
@@ -97,7 +95,7 @@ func (s *ChroniclesTestSuite) CreateMDBCollection(db *sql.DB, contentType string
 	return uid
 }
 
-func (s *ChroniclesTestSuite) CreateMDBContentUnit(db *sql.DB, contentType string) string {
+func (s *ChroniclesTestSuite) CreateMDBContentUnit(db *sql.DB, contentType string) (string, string) {
 	uid := utils.GenerateUID(8)
 	typeID := mdb.ContentTypesByName[contentType]
 	q := fmt.Sprintf("INSERT INTO content_units (uid, type_id, published) VALUES ('%s', %d, %t)", uid, typeID, true)
@@ -106,7 +104,7 @@ func (s *ChroniclesTestSuite) CreateMDBContentUnit(db *sql.DB, contentType strin
 
 	coUID := s.CreateMDBCollection(s.MDB.DB, CT_CLIPS)
 	s.AssociateCollectionAndUnit(s.MDB.DB, coUID, uid)
-	return uid
+	return uid, coUID
 }
 
 func (s *ChroniclesTestSuite) AssociateCollectionAndUnit(db *sql.DB, coUID, cuUID string) {
