@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	SCAN_SIZE     = 1000
+	SCAN_SIZE     = 100
 	MAX_INTERVAL  = time.Minute
 	MIN_INTERVAL  = 100 * time.Millisecond
 	WAIT_FOR_SAVE = 5 * time.Minute
@@ -99,7 +99,7 @@ func (c *Chronicles) InitWithDeps(mydbConn, mdbConn *sql.DB) {
 	utils.Must(mdb.InitCT(c.MDB))
 
 	c.chroniclesClient = &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 100 * time.Second,
 	}
 }
 
@@ -138,16 +138,15 @@ func (c *Chronicles) Shutdown() {
 }
 
 func (c *Chronicles) lastChroniclesId() (string, error) {
-	//TODO: replace with max(chronicle_id)
-	//TODO David query need log
-	h, err := models.Histories(qm.OrderBy("chronicle_id")).One(c.MyDB)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
-		return "", err
+	var lastID null.String
+	err := models.NewQuery(
+		qm.Select(fmt.Sprintf("MAX('%s')", models.HistoryColumns.ChroniclesID)),
+		qm.From(models.TableNames.History),
+	).QueryRow(c.MyDB).Scan(&lastID)
+	if err == sql.ErrNoRows {
+		return "", nil
 	}
-	return h.ChroniclesID, nil
+	return lastID.String, err
 }
 
 func (c *Chronicles) refresh() error {

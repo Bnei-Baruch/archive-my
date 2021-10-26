@@ -11,13 +11,15 @@ import (
 
 	"github.com/Bnei-Baruch/archive-my/common"
 	"github.com/Bnei-Baruch/archive-my/instrumentation"
+	"github.com/Bnei-Baruch/archive-my/lib/chronicles"
 	"github.com/Bnei-Baruch/archive-my/middleware"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type App struct {
-	Router *gin.Engine
-	DB     *sql.DB
+	Router     *gin.Engine
+	DB         *sql.DB
+	chronicles *chronicles.Chronicles
 }
 
 func (a *App) Initialize() {
@@ -30,6 +32,9 @@ func (a *App) Initialize() {
 	log.Info().Msg("Setting up connection to MyDB")
 	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	utils.Must(err)
+
+	a.chronicles = new(chronicles.Chronicles)
+	a.chronicles.Init()
 
 	a.InitializeWithDeps(db, verifier)
 }
@@ -69,6 +74,7 @@ func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenV
 func (a *App) Run() {
 	defer a.Shutdown()
 
+	a.chronicles.Run()
 	addr := common.Config.ListenAddress
 	log.Info().Msgf("app run %s", addr)
 	if err := a.Router.Run(addr); err != nil {
@@ -77,6 +83,8 @@ func (a *App) Run() {
 }
 
 func (a *App) Shutdown() {
+	a.chronicles.Stop()
+
 	if err := a.DB.Close(); err != nil {
 		log.Error().Err(err).Msg("DB.close")
 	}
