@@ -13,3 +13,4 @@
 _vendor-*/
 
 archive-my
+sqlboiler.toml
