@@ -56,12 +56,19 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		return
 	}
 
+	if r.ListRequest.PageSize == 0 {
+		r.ListRequest.PageSize = MaxPlaylistSize
+	}
+
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
 		concludeRequest(c, NewPlaylistsResponse(0, 0), nil)
 		return
 	}
 
+	if r.ExistUnit != "" {
+		mods = append(mods, qm.Load("PlaylistItems", models.PlaylistItemWhere.ContentUnitUID.EQ(r.ExistUnit)))
+	}
 	items, err := models.Playlists(mods...).All(db)
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
@@ -613,6 +620,7 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 }
 
 func (a *App) handleReactionCount(c *gin.Context) {
+	//TODO use subject type
 	var req UIDsFilter
 	if c.Bind(&req) != nil {
 		return
@@ -741,7 +749,13 @@ func (a *App) handleGetSubscriptions(c *gin.Context) {
 		return
 	}
 
-	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
+	mods := []qm.QueryMod{models.SubscriptionWhere.UserID.EQ(user.ID)}
+	if r.ContentType != "" {
+		mods = append(mods, models.SubscriptionWhere.ContentType.EQ(null.StringFrom(r.ContentType)))
+	}
+	if r.CollectionUID != "" {
+		mods = append(mods, models.SubscriptionWhere.CollectionUID.EQ(null.StringFrom(r.CollectionUID)))
+	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	total, err := models.Subscriptions(mods...).Count(db)

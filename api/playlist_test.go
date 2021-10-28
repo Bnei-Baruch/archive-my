@@ -50,6 +50,25 @@ func (s *ApiTestSuite) TestPlaylist_getPlaylists() {
 	s.Empty(resp.Items, "items empty")
 }
 
+func (s *ApiTestSuite) TestPlaylist_getPlaylists_with_exist() {
+	user := s.CreateUser()
+
+	playlist := s.CreatePlaylist(user, "playlist with exist", nil)
+	_ = s.CreatePlaylist(user, "playlist with no exist", nil)
+	cuUID := playlist.R.PlaylistItems[0].ContentUnitUID
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/playlists?exist_cu=%s&order_by=id", cuUID), nil)
+	s.apiAuthUser(req, user)
+
+	var resp PlaylistsResponse
+	s.request200json(req, &resp)
+
+	s.EqualValues(2, resp.Total, "total")
+	s.Equal(playlist.ID, resp.Items[0].ID)
+	s.EqualValues(1, len(resp.Items[0].Items), "number items")
+	s.EqualValues(cuUID, resp.Items[0].Items[0].ContentUnitUID, "wright unit")
+}
+
 func (s *ApiTestSuite) TestPlaylist_getPlaylists_pagination() {
 	user := s.CreateUser()
 	playlists := make([]*models.Playlist, 10)

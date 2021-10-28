@@ -57,6 +57,38 @@ func (s *ApiTestSuite) TestSubscribe_getSubscriptions() {
 	s.Empty(resp.Items, "items empty")
 }
 
+func (s *ApiTestSuite) TestSubscribe_getSubscriptions_filtered() {
+	user := s.CreateUser()
+
+	subByCT := s.CreateSubscription(user, "CLIPS")
+	subByUID := s.CreateSubscription(user, "")
+
+	var resp SubscriptionsResponse
+	wrongUID := fmt.Sprintf("%sXX", subByUID.CollectionUID.String[:6])
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/subscriptions?collection_uid=%s", wrongUID), nil)
+	s.apiAuthUser(req, user)
+	s.request200json(req, &resp)
+	s.Equal(int64(0), resp.Total, "not subscribed by collection")
+
+	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/subscriptions?collection_uid=%s", subByUID.CollectionUID.String), nil)
+	s.apiAuthUser(req, user)
+	s.request200json(req, &resp)
+	s.Equal(int64(1), resp.Total, "subscribed by collection")
+	s.assertSubscriptions(subByUID, resp.Items[0])
+
+	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/subscriptions?content_type=%s", "PROGRAMMS"), nil)
+	s.apiAuthUser(req, user)
+	s.request200json(req, &resp)
+	s.Equal(int64(0), resp.Total, "not subscribed by CT")
+
+	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/subscriptions?content_type=%s", subByCT.ContentType.String), nil)
+	s.apiAuthUser(req, user)
+	s.request200json(req, &resp)
+	s.Equal(int64(1), resp.Total, "subscribed by CT")
+	s.assertSubscriptions(subByCT, resp.Items[0])
+
+}
+
 func (s *ApiTestSuite) TestSubscribe_subscribe_fail() {
 	user := s.CreateUser()
 

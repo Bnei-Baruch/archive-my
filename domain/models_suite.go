@@ -76,9 +76,9 @@ func (s *ModelsSuite) CreateSubscription(user *models.User, ct string) *models.S
 		UserID: user.ID,
 	}
 	if ct == "" {
-		subscription.CollectionUID = null.String{String: utils.GenerateUID(8), Valid: true}
+		subscription.CollectionUID = null.StringFrom(utils.GenerateUID(8))
 	} else {
-		subscription.ContentType = null.String{String: ct, Valid: true}
+		subscription.ContentType = null.StringFrom(ct)
 	}
 	s.Require().NoError(subscription.Insert(s.MyDB.DB, boil.Infer()))
 	return subscription

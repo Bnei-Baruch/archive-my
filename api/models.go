@@ -27,6 +27,7 @@ type UIDsFilter struct {
 
 type GetPlaylistsRequest struct {
 	ListRequest
+	ExistUnit string `json:"exist_cu" form:"exist_cu" binding:"omitempty"`
 }
 
 type PlaylistsResponse struct {
@@ -81,7 +82,7 @@ type ReactionsResponse struct {
 
 type AddReactionsRequest struct {
 	Kind        string `json:"kind" binding:"required,max=16"`
-	SubjectType string `json:"subject_type" binding:"required,max=16"`
+	SubjectType string `json:"subject_type" binding:"required,max=32"`
 	SubjectUID  string `json:"subject_uid" binding:"required,len=8"`
 }
 
@@ -100,6 +101,7 @@ type HistoryResponse struct {
 
 type GetSubscriptionsRequest struct {
 	ListRequest
+	SubscribeRequest
 }
 
 type SubscriptionsResponse struct {
@@ -108,9 +110,9 @@ type SubscriptionsResponse struct {
 }
 
 type SubscribeRequest struct {
-	CollectionUID  string `json:"collection_uid" binding:"omitempty"`
-	ContentType    string `json:"content_type" binding:"omitempty"`
-	ContentUnitUID string `json:"content_unit_uid" binding:"omitempty"`
+	CollectionUID  string `json:"collection_uid" form:"collection_uid" binding:"omitempty"`
+	ContentType    string `json:"content_type" form:"content_type" binding:"omitempty"`
+	ContentUnitUID string `json:"content_unit_uid" form:"content_unit_uid" binding:"omitempty"`
 }
 
 // DTOs
