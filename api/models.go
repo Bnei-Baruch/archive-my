@@ -118,15 +118,16 @@ type SubscribeRequest struct {
 // DTOs
 
 type Playlist struct {
-	ID         int64                  `json:"id"`
-	UID        string                 `json:"uid"`
-	UserID     int64                  `json:"user_id"`
-	Name       string                 `json:"name,omitempty"`
-	Public     bool                   `json:"public"`
-	Properties map[string]interface{} `json:"properties,omitempty"`
-	CreatedAt  time.Time              `json:"created_at"`
-	TotalItems int                    `json:"total_items"`
-	Items      []*PlaylistItem        `json:"items"`
+	ID              int64                  `json:"id"`
+	UID             string                 `json:"uid"`
+	UserID          int64                  `json:"user_id"`
+	Name            string                 `json:"name,omitempty"`
+	Public          bool                   `json:"public"`
+	Properties      map[string]interface{} `json:"properties,omitempty"`
+	CreatedAt       time.Time              `json:"created_at"`
+	TotalItems      int                    `json:"total_items"`
+	Items           []*PlaylistItem        `json:"items"`
+	MaxItemPosition int                    `json:"max_position"`
 }
 
 type PlaylistItem struct {

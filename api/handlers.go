@@ -86,7 +86,7 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 
 	// total_items histogram
 	rows, err := models.NewQuery(
-		qm.Select(models.PlaylistItemColumns.PlaylistID, "count(*)"),
+		qm.Select(models.PlaylistItemColumns.PlaylistID, "count(*)", "MAX(position)"),
 		qm.From(models.TableNames.PlaylistItems),
 		models.PlaylistItemWhere.PlaylistID.IN(playlistIDs),
 		qm.GroupBy(models.PlaylistItemColumns.PlaylistID),
@@ -100,11 +100,13 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 	for rows.Next() {
 		var playlistID int64
 		var totalItems int
-		if err := rows.Scan(&playlistID, &totalItems); err != nil {
+		var maxPosition int
+		if err := rows.Scan(&playlistID, &totalItems, &maxPosition); err != nil {
 			errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 			return
 		}
 		playlistDTOByID[playlistID].TotalItems = totalItems
+		playlistDTOByID[playlistID].MaxItemPosition = maxPosition
 	}
 
 	if err := rows.Err(); err != nil {
@@ -913,11 +915,12 @@ func concludeRequest(c *gin.Context, resp interface{}, err error) {
 
 func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 	resp := Playlist{
-		ID:        playlist.ID,
-		UID:       playlist.UID,
-		UserID:    playlist.UserID,
-		Public:    playlist.Public,
-		CreatedAt: playlist.CreatedAt,
+		ID:              playlist.ID,
+		UID:             playlist.UID,
+		UserID:          playlist.UserID,
+		Public:          playlist.Public,
+		CreatedAt:       playlist.CreatedAt,
+		MaxItemPosition: 0,
 	}
 	if playlist.Name.Valid {
 		resp.Name = playlist.Name.String
@@ -931,8 +934,9 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 
 		resp.Items = make([]*PlaylistItem, resp.TotalItems)
 		sort.SliceStable(playlist.R.PlaylistItems, func(i int, j int) bool {
-			return playlist.R.PlaylistItems[i].Position < playlist.R.PlaylistItems[j].Position
+			return playlist.R.PlaylistItems[i].Position > playlist.R.PlaylistItems[j].Position
 		})
+		resp.MaxItemPosition = playlist.R.PlaylistItems[0].Position
 
 		for i, item := range playlist.R.PlaylistItems {
 			resp.Items[i] = &PlaylistItem{
