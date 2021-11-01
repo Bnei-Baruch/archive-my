@@ -518,7 +518,8 @@ func (s *ApiTestSuite) assertPlaylistItems(expected *models.Playlist, actual *Pl
 		if len(actual.Items) > 0 {
 			s.Len(actual.Items, len(expected.R.PlaylistItems), "playlist.PlaylistItems len [%d]", idx)
 			for i, u := range expected.R.PlaylistItems {
-				s.assertPlaylistItem(u, actual.Items[i], i)
+				j := len(expected.R.PlaylistItems) - i - 1
+				s.assertPlaylistItem(u, actual.Items[j], i)
 			}
 		}
 	}
