@@ -622,7 +622,6 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 }
 
 func (a *App) handleReactionCount(c *gin.Context) {
-	//TODO use subject type
 	var req UIDsFilter
 	if c.Bind(&req) != nil {
 		return
