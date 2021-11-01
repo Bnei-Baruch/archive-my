@@ -128,6 +128,7 @@ type Playlist struct {
 	TotalItems      int                    `json:"total_items"`
 	Items           []*PlaylistItem        `json:"items"`
 	MaxItemPosition int                    `json:"max_position"`
+	FirstUnitUID    string                 `json:"content_unit_uid"`
 }
 
 type PlaylistItem struct {

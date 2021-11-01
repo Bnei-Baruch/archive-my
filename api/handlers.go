@@ -86,7 +86,11 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 
 	// total_items histogram
 	rows, err := models.NewQuery(
-		qm.Select(models.PlaylistItemColumns.PlaylistID, "count(*)", "MAX(position)"),
+		qm.Select(
+			models.PlaylistItemColumns.PlaylistID,
+			"count(*)",
+			fmt.Sprintf("MAX(%s)", models.PlaylistItemColumns.Position),
+		),
 		qm.From(models.TableNames.PlaylistItems),
 		models.PlaylistItemWhere.PlaylistID.IN(playlistIDs),
 		qm.GroupBy(models.PlaylistItemColumns.PlaylistID),
@@ -114,6 +118,30 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		return
 	}
 
+	rows, err = models.NewQuery(
+		qm.Select(fmt.Sprintf("DISTINCT ON(%[1]s) %[1]s, %[2]s", models.PlaylistItemColumns.PlaylistID, models.PlaylistItemColumns.ContentUnitUID)),
+		qm.From(models.TableNames.PlaylistItems),
+		models.PlaylistItemWhere.PlaylistID.IN(playlistIDs),
+	).Query(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var playlistID int64
+		var contentUnitUID string
+		if err := rows.Scan(&playlistID, &contentUnitUID); err != nil {
+			errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+			return
+		}
+		playlistDTOByID[playlistID].FirstUnitUID = contentUnitUID
+	}
+	if err := rows.Err(); err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
 	concludeRequest(c, resp, nil)
 }
 
@@ -525,7 +553,7 @@ func (a *App) handleGetReactions(c *gin.Context) {
 		return
 	}
 	if r.OrderBy == "" {
-		r.OrderBy = models.ReactionColumns.ID
+		r.OrderBy = fmt.Sprintf("%s DESC", models.ReactionColumns.ID)
 	}
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
