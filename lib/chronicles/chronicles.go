@@ -140,7 +140,7 @@ func (c *Chronicles) Shutdown() {
 func (c *Chronicles) lastChroniclesId() (string, error) {
 	var lastID null.String
 	err := models.NewQuery(
-		qm.Select(fmt.Sprintf("MAX('%s')", models.HistoryColumns.ChroniclesID)),
+		qm.Select(fmt.Sprintf("MAX(%s)", models.HistoryColumns.ChroniclesID)),
 		qm.From(models.TableNames.History),
 	).QueryRow(c.MyDB).Scan(&lastID)
 	if err == sql.ErrNoRows {

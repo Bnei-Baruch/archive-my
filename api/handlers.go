@@ -658,6 +658,7 @@ func (a *App) handleReactionCount(c *gin.Context) {
 	mods := []qm.QueryMod{
 		qm.Select(models.ReactionColumns.SubjectUID, models.ReactionColumns.SubjectType, models.ReactionColumns.Kind, "count(id)"),
 		qm.From(models.TableNames.Reactions),
+		qm.GroupBy(models.ReactionColumns.SubjectType),
 		qm.GroupBy(models.ReactionColumns.SubjectUID),
 		qm.GroupBy(models.ReactionColumns.Kind),
 	}
@@ -704,6 +705,9 @@ func (a *App) handleGetHistory(c *gin.Context) {
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
+	}
+	if r.OrderBy == "" {
+		r.OrderBy = fmt.Sprintf("%s DESC", models.HistoryColumns.ChroniclesTimestamp)
 	}
 
 	_, offset := appendListMods(&mods, r.ListRequest)
