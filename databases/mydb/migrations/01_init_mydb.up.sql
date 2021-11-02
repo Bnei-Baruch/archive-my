@@ -112,3 +112,7 @@ INDEX IF NOT EXISTS history_user_id_idx
 CREATE
 INDEX IF NOT EXISTS history_content_unit_uid_idx
     ON history USING BTREE (user_id, content_unit_uid);
+
+CREATE
+INDEX IF NOT EXISTS history_chronicles_timestamp_idx
+    ON history USING BTREE (user_id, chronicles_timestamp);

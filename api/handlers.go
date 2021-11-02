@@ -56,10 +56,6 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		return
 	}
 
-	if r.ListRequest.PageSize == 0 {
-		r.ListRequest.PageSize = MaxPlaylistSize
-	}
-
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
 		concludeRequest(c, NewPlaylistsResponse(0, 0), nil)
@@ -616,32 +612,26 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		count, err := models.Reactions(models.ReactionWhere.UserID.EQ(user.ID),
+		_, err := models.Reactions(models.ReactionWhere.UserID.EQ(user.ID),
 			models.ReactionWhere.Kind.EQ(r.Kind),
 			models.ReactionWhere.SubjectType.EQ(r.SubjectType),
 			models.ReactionWhere.SubjectUID.EQ(r.SubjectUID)).DeleteAll(tx)
-		if err != nil {
-			return err
-		}
-		if count == 0 {
-			return errs.NewNotFoundError(sql.ErrNoRows)
-		}
-		return nil
+		return err
 	})
 
 	concludeRequest(c, nil, err)
 }
 
 func (a *App) handleReactionCount(c *gin.Context) {
-	var req UIDsFilter
+	var req ReactionCountResponse
 	if c.Bind(&req) != nil {
 		return
 	}
 
 	mods := []qm.QueryMod{
-		qm.Select(models.ReactionColumns.SubjectUID, models.ReactionColumns.SubjectType, models.ReactionColumns.Kind, "count(id)"),
+		qm.Select(models.ReactionColumns.SubjectUID, models.ReactionColumns.Kind, "count(id)"),
 		qm.From(models.TableNames.Reactions),
-		qm.GroupBy(models.ReactionColumns.SubjectType),
+		models.ReactionWhere.SubjectType.EQ(req.SubjectType),
 		qm.GroupBy(models.ReactionColumns.SubjectUID),
 		qm.GroupBy(models.ReactionColumns.Kind),
 	}
@@ -661,8 +651,14 @@ func (a *App) handleReactionCount(c *gin.Context) {
 	resp := make([]*ReactionCount, 0)
 	for rows.Next() {
 		r := &ReactionCount{}
-		err = rows.Scan(r.SubjectUID, r.SubjectType, r.Kind, r.Total)
+		r.SubjectType = req.SubjectType
+		err = rows.Scan(r.SubjectUID, r.Kind, r.Total)
 		resp = append(resp, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
 	}
 
 	concludeRequest(c, resp, nil)
@@ -738,14 +734,8 @@ func (a *App) handleDeleteHistory(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		count, err := models.Histories(models.HistoryWhere.UserID.EQ(user.ID), models.HistoryWhere.ID.EQ(id)).DeleteAll(tx)
-		if err != nil {
-			return err
-		}
-		if count == 0 {
-			return errs.NewNotFoundError(sql.ErrNoRows)
-		}
-		return nil
+		_, err := models.Histories(models.HistoryWhere.UserID.EQ(user.ID), models.HistoryWhere.ID.EQ(id)).DeleteAll(tx)
+		return err
 	})
 
 	concludeRequest(c, nil, err)
@@ -872,14 +862,8 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		count, err := models.Subscriptions(models.SubscriptionWhere.UserID.EQ(user.ID), models.SubscriptionWhere.ID.EQ(id)).DeleteAll(tx)
-		if err != nil {
-			return err
-		}
-		if count == 0 {
-			return errs.NewNotFoundError(sql.ErrNoRows)
-		}
-		return nil
+		_, err := models.Subscriptions(models.SubscriptionWhere.UserID.EQ(user.ID), models.SubscriptionWhere.ID.EQ(id)).DeleteAll(tx)
+		return err
 	})
 
 	concludeRequest(c, nil, err)

@@ -6,16 +6,18 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
 	pkgerr "github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/errs"
-	"github.com/Bnei-Baruch/archive-my/pkg/sqlutil"
+	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type Roles struct {
@@ -108,9 +110,16 @@ func (v *FailoverOIDCTokenVerifier) Verify(ctx context.Context, tokenStr string)
 	return nil, err
 }
 
-func AuthenticationMiddleware(tokenVerifier OIDCTokenVerifier) gin.HandlerFunc {
+type Auth struct {
+	mu     sync.Mutex
+	claims *IDTokenClaims
+	db     *sql.DB
+	user   *models.User
+}
+
+func (a *Auth) AuthenticationMiddleware(tokenVerifier OIDCTokenVerifier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		auth := parseToken(c.Request)
+		auth := a.parseToken(c.Request)
 		if auth == "" {
 			errs.NewUnauthorizedError(pkgerr.Errorf("no `Authorization` header set")).Abort(c)
 			return
@@ -121,27 +130,71 @@ func AuthenticationMiddleware(tokenVerifier OIDCTokenVerifier) gin.HandlerFunc {
 			errs.NewUnauthorizedError(err).Abort(c)
 			return
 		}
-
-		var claims IDTokenClaims
-		if err := token.Claims(&claims); err != nil {
+		a.claims = new(IDTokenClaims)
+		if err := token.Claims(a.claims); err != nil {
 			errs.NewBadRequestError(pkgerr.Wrap(err, "malformed JWT claims")).Abort(c)
 			return
 		}
-		c.Set("ID_CLAIMS", &claims)
+		c.Set("ID_CLAIMS", a.claims)
 
-		mydb := c.MustGet("MY_DB").(*sql.DB)
-		user, err := getOrCreateUser(mydb, &claims)
+		a.db = c.MustGet("MY_DB").(*sql.DB)
+		err = a.getOrCreateUser()
 		if err != nil {
 			errs.NewInternalError(err).Abort(c)
 			return
 		}
-		c.Set("USER", user)
+		c.Set("USER", a.user)
 
 		c.Next()
 	}
 }
 
-func parseToken(r *http.Request) string {
+func (a *Auth) getOrCreateUser() error {
+	if err := a.fetchUserFromDB(); err != nil || a.user != nil {
+		log.Info().Msgf("get user from db: %v", a.user)
+		return err
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if err := a.fetchUserFromDB(); err != nil || a.user != nil {
+		log.Info().Msgf("get user from db from mutex: %v", a.user)
+		return err
+	}
+
+	user := &models.User{
+		AccountsID: a.claims.Sub,
+		Email:      null.StringFrom(a.claims.Email),
+		FirstName:  null.StringFrom(a.claims.GivenName),
+		LastName:   null.StringFrom(a.claims.FamilyName),
+		Disabled:   false,
+	}
+	log.Info().Msgf("start create user: %v", user)
+
+	tx, err := a.db.Begin()
+	utils.Must(err)
+	if err := user.Insert(tx, boil.Infer()); err != nil {
+		utils.Must(tx.Rollback())
+		return pkgerr.Wrap(err, "create new user in DB")
+	}
+	utils.Must(tx.Commit())
+
+	a.user = user
+	log.Info().Msgf("end create user: %v", a.user)
+	return nil
+}
+
+func (a *Auth) fetchUserFromDB() error {
+	var err error
+	a.user, err = models.Users(models.UserWhere.AccountsID.EQ(a.claims.Sub)).One(a.db)
+	if !errors.Is(err, sql.ErrNoRows) {
+		return pkgerr.Wrap(err, "lookup user in DB")
+	}
+	return nil
+}
+
+func (a *Auth) parseToken(r *http.Request) string {
 	authHeader := strings.Split(strings.TrimSpace(r.Header.Get("Authorization")), " ")
 	if len(authHeader) == 2 &&
 		strings.ToLower(authHeader[0]) == "bearer" &&
@@ -149,35 +202,4 @@ func parseToken(r *http.Request) string {
 		return authHeader[1]
 	}
 	return ""
-}
-
-func getOrCreateUser(db *sql.DB, claims *IDTokenClaims) (*models.User, error) {
-	user, err := models.Users(models.UserWhere.AccountsID.EQ(claims.Sub)).One(db)
-	if err == nil {
-		return user, nil
-	}
-
-	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, pkgerr.Wrap(err, "lookup user in DB")
-	}
-
-	user = &models.User{
-		AccountsID: claims.Sub,
-		Email:      null.StringFrom(claims.Email),
-		FirstName:  null.StringFrom(claims.GivenName),
-		LastName:   null.StringFrom(claims.FamilyName),
-		Disabled:   false,
-	}
-	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		if err := user.Insert(tx, boil.Infer()); err != nil {
-			return pkgerr.Wrap(err, "create new user in DB")
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	err = user.Reload(db)
-	return user, err
 }

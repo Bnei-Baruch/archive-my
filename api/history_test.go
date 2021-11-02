@@ -66,23 +66,6 @@ func (s *ApiTestSuite) TestHistory_getHistory_pagination() {
 	}
 }
 
-func (s *ApiTestSuite) TestHistory_deleteHistory_notFound() {
-	user := s.CreateUser()
-
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/history/%d", 1), nil)
-	s.apiAuthUser(req, user)
-	resp := s.request(req)
-	s.Equal(http.StatusNotFound, resp.Code)
-
-	s.assertTokenVerifier()
-	otherUser := s.CreateUser()
-	history := s.CreateHistory(user)
-	req, _ = http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/history/%d", history.ID), nil)
-	s.apiAuthUser(req, otherUser)
-	resp = s.request(req)
-	s.Equal(http.StatusNotFound, resp.Code)
-}
-
 func (s *ApiTestSuite) TestHistory_deleteHistory() {
 	user := s.CreateUser()
 	history := s.CreateHistory(user)

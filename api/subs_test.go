@@ -161,23 +161,6 @@ func (s *ApiTestSuite) TestSubscribe_subscribe() {
 	s.Equal(resp.ContentUnitUID.String, cuUID, "by content type: ContentUnitUID")
 }
 
-func (s *ApiTestSuite) TestSubscribe_unsubscribe_notFound() {
-	user := s.CreateUser()
-
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/subscriptions/%d", 1), nil)
-	s.apiAuthUser(req, user)
-	resp := s.request(req)
-	s.Equal(http.StatusNotFound, resp.Code)
-
-	s.assertTokenVerifier()
-	otherUser := s.CreateUser()
-	subscription := s.CreateSubscription(user, "")
-	req, _ = http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/subscriptions/%d", subscription.ID), nil)
-	s.apiAuthUser(req, otherUser)
-	resp = s.request(req)
-	s.Equal(http.StatusNotFound, resp.Code)
-}
-
 func (s *ApiTestSuite) TestSubscribe_unsubscribe() {
 	user := s.CreateUser()
 	subscription := s.CreateSubscription(user, "")

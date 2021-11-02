@@ -33,9 +33,6 @@ func (a *App) Initialize() {
 	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	utils.Must(err)
 
-	a.chronicles = new(chronicles.Chronicles)
-	a.chronicles.Init()
-
 	a.InitializeWithDeps(db, verifier)
 }
 
@@ -67,7 +64,9 @@ func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenV
 		middleware.DataStoresMiddleware(a.DB))
 
 	a.initRoutes(tokenVerifier)
-	//a.initChronicles()
+
+	a.chronicles = new(chronicles.Chronicles)
+	a.chronicles.Init()
 	instrumentation.Stats.Init()
 }
 
@@ -98,7 +97,8 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	// TODO: public endpoint for public playlists (get by UID) string all internal IDs
 
 	rest := a.Router.Group("/rest")
-	rest.Use(middleware.AuthenticationMiddleware(verifier))
+	auth := middleware.Auth{}
+	rest.Use(auth.AuthenticationMiddleware(verifier))
 
 	rest.GET("/playlists", a.handleGetPlaylists)
 	rest.POST("/playlists", a.handleCreatePlaylist)

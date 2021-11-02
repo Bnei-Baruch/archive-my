@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
@@ -102,35 +101,6 @@ func (s *ApiTestSuite) TestReactions_getReactions_filtered() {
 	s.Equal(int64(1), resp.Total, "total by SubjectType and UID")
 	s.assertReaction(rClips[0], resp.Items[0], 1)
 
-}
-
-func (s *ApiTestSuite) TestReactions_deleteReactions_notFound() {
-	user := s.CreateUser()
-
-	kind := utils.GenerateName(rand.Intn(15) + 1)
-	sType := utils.GenerateName(rand.Intn(15) + 1)
-	sUID := utils.GenerateUID(8)
-	payload, err := json.Marshal(map[string]interface{}{
-		"kind":         kind,
-		"subject_type": sType,
-		"subject_uid":  sUID,
-	})
-	s.NoError(err)
-
-	req, _ := http.NewRequest(http.MethodDelete, "/rest/reactions", bytes.NewReader(payload))
-	s.apiAuthUser(req, user)
-	resp := s.request(req)
-	s.Equal(http.StatusNotFound, resp.Code)
-
-	_ = s.CreateReaction(user, kind, sType, sUID)
-
-	//try to remove with other user
-	s.assertTokenVerifier()
-	otherUser := s.CreateUser()
-	req, _ = http.NewRequest(http.MethodDelete, "/rest/reactions", bytes.NewReader(payload))
-	s.apiAuthUser(req, otherUser)
-	resp = s.request(req)
-	s.Equal(http.StatusNotFound, resp.Code)
 }
 
 func (s *ApiTestSuite) TestReactions_deleteReactions() {

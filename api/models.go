@@ -90,6 +90,11 @@ type RemoveReactionsRequest struct {
 	AddReactionsRequest
 }
 
+type ReactionCountResponse struct {
+	UIDsFilter
+	SubjectType string `json:"type" form:"type" binding:"omitempty"`
+}
+
 type GetHistoryRequest struct {
 	ListRequest
 }
