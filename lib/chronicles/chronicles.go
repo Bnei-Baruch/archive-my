@@ -30,7 +30,7 @@ const (
 	SCAN_SIZE     = 100
 	MAX_INTERVAL  = time.Minute
 	MIN_INTERVAL  = 100 * time.Millisecond
-	WAIT_FOR_SAVE = 5 * time.Minute
+	WAIT_FOR_SAVE = 1 * time.Minute
 )
 
 type Chronicles struct {

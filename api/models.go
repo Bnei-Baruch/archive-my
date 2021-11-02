@@ -128,7 +128,7 @@ type Playlist struct {
 	TotalItems      int                    `json:"total_items"`
 	Items           []*PlaylistItem        `json:"items"`
 	MaxItemPosition int                    `json:"max_position"`
-	FirstUnitUID    string                 `json:"content_unit_uid"`
+	PosterUnitUID   string                 `json:"poster_unit_uid,omitempty"`
 }
 
 type PlaylistItem struct {
@@ -144,8 +144,8 @@ type Reaction struct {
 }
 
 type ReactionCount struct {
-	Total string `json:"total"`
 	Reaction
+	Total string `json:"total"`
 }
 
 type History struct {

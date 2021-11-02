@@ -118,30 +118,6 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		return
 	}
 
-	rows, err = models.NewQuery(
-		qm.Select(fmt.Sprintf("DISTINCT ON(%[1]s) %[1]s, %[2]s", models.PlaylistItemColumns.PlaylistID, models.PlaylistItemColumns.ContentUnitUID)),
-		qm.From(models.TableNames.PlaylistItems),
-		models.PlaylistItemWhere.PlaylistID.IN(playlistIDs),
-	).Query(db)
-	if err != nil {
-		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var playlistID int64
-		var contentUnitUID string
-		if err := rows.Scan(&playlistID, &contentUnitUID); err != nil {
-			errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
-			return
-		}
-		playlistDTOByID[playlistID].FirstUnitUID = contentUnitUID
-	}
-	if err := rows.Err(); err != nil {
-		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
-		return
-	}
 	concludeRequest(c, resp, nil)
 }
 
@@ -384,6 +360,13 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 
 		if err := playlist.AddPlaylistItems(tx, true, items...); err != nil {
 			return pkgerr.Wrap(err, "insert items to db")
+		}
+
+		if !playlist.PosterUnitUID.Valid {
+			playlist.PosterUnitUID = null.StringFrom(items[0].ContentUnitUID)
+			if _, err := playlist.Update(tx, boil.Whitelist(models.PlaylistColumns.PosterUnitUID)); err != nil {
+				return pkgerr.Wrap(err, "insert poster uid to db")
+			}
 		}
 
 		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
@@ -958,6 +941,10 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 	}
 	if playlist.Properties.Valid {
 		utils.Must(playlist.Properties.Unmarshal(&resp.Properties))
+	}
+
+	if playlist.PosterUnitUID.Valid {
+		resp.PosterUnitUID = playlist.PosterUnitUID.String
 	}
 
 	if playlist.R != nil && len(playlist.R.PlaylistItems) > 0 {

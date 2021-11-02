@@ -300,8 +300,9 @@ func (s *ApiTestSuite) TestPlaylist_addItems() {
 	user := s.CreateUser()
 	playlist := s.CreatePlaylist(user, "playlist", nil)
 
+	posterUnitUID := "12345678"
 	payload, err := json.Marshal(AddPlaylistItemsRequest{Items: []PlaylistItemAddInfo{
-		{Position: len(playlist.R.PlaylistItems) + 1, ContentUnitUID: "12345678"},
+		{Position: len(playlist.R.PlaylistItems) + 1, ContentUnitUID: posterUnitUID},
 		{Position: len(playlist.R.PlaylistItems) + 2, ContentUnitUID: "87654321"},
 	}})
 	s.Require().NoError(err)
@@ -312,6 +313,7 @@ func (s *ApiTestSuite) TestPlaylist_addItems() {
 
 	s.Require().NoError(playlist.L.LoadPlaylistItems(s.MyDB.DB, true, playlist, qm.OrderBy("position")))
 	s.assertPlaylist(playlist, &resp, 0)
+	s.Equal(posterUnitUID, resp.PosterUnitUID, "PosterUnitUID")
 }
 
 func (s *ApiTestSuite) TestPlaylist_updateItems_notFound() {
