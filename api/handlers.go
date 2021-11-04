@@ -36,9 +36,9 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -123,9 +123,9 @@ func (a *App) handleCreatePlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -174,9 +174,9 @@ func (a *App) handleGetPlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -218,9 +218,9 @@ func (a *App) handleUpdatePlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -276,9 +276,9 @@ func (a *App) handleDeletePlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -305,6 +305,7 @@ func (a *App) handleDeletePlaylist(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
+// PlaylistItem handlers
 func (a *App) handleAddPlaylistItems(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
@@ -317,9 +318,9 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -388,9 +389,9 @@ func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -451,9 +452,9 @@ func (a *App) handleRemovePlaylistItems(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -506,9 +507,9 @@ func (a *App) handleGetReactions(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -567,9 +568,9 @@ func (a *App) handleAddReactions(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -604,9 +605,9 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -671,9 +672,9 @@ func (a *App) handleGetHistory(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -726,9 +727,9 @@ func (a *App) handleDeleteHistory(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -742,16 +743,15 @@ func (a *App) handleDeleteHistory(c *gin.Context) {
 }
 
 //Subscription handlers
-
 func (a *App) handleGetSubscriptions(c *gin.Context) {
 	var r GetSubscriptionsRequest
 	if c.Bind(&r) != nil {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -814,9 +814,9 @@ func (a *App) handleSubscribe(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -854,9 +854,9 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -869,25 +869,24 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-// Bookmarks handlers
-
+//Bookmark handlers
 func (a *App) handleGetBookmarks(c *gin.Context) {
-	var r BookmarksRequest
+	var r GetBookmarksRequest
 	if c.Bind(&r) != nil {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 
 	var lMods []qm.QueryMod
-	if len(r.BookmarkFolderIDs) > 0 {
-		lMods = append(lMods, models.BookmarkFolderWhere.FolderID.IN(r.BookmarkFolderIDs))
+	if len(r.FolderIDs) > 0 {
+		lMods = append(lMods, models.BookmarkFolderWhere.FolderID.IN(r.FolderIDs))
 	}
 
 	mods := []qm.QueryMod{
@@ -899,7 +898,7 @@ func (a *App) handleGetBookmarks(c *gin.Context) {
 
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
-		concludeRequest(c, new(BookmarksResponse), nil)
+		concludeRequest(c, new(GetBookmarksResponse), nil)
 		return
 	}
 
@@ -914,7 +913,7 @@ func (a *App) handleGetBookmarks(c *gin.Context) {
 		items[i] = makeBookmarkDTO(b)
 	}
 
-	resp := BookmarksResponse{
+	resp := GetBookmarksResponse{
 		ListResponse: ListResponse{Total: total},
 		Items:        items,
 	}
@@ -927,9 +926,9 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -989,9 +988,9 @@ func (a *App) handleUpdateBookmark(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -1031,9 +1030,9 @@ func (a *App) handleDeleteBookmark(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -1056,7 +1055,129 @@ func (a *App) handleDeleteBookmark(c *gin.Context) {
 	concludeRequest(c, resp, err)
 }
 
+//Folder handlers
+func (a *App) handleGetFolders(c *gin.Context) {
+	var r GetFoldersRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+
+	mods := []qm.QueryMod{models.FolderWhere.UserID.EQ(user.ID)}
+
+	total, err := models.Folders(mods...).Count(db)
+
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(GetFoldersResponse), nil)
+		return
+	}
+
+	folders, err := models.Folders(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Folder, len(folders))
+	for i, f := range folders {
+		items[i] = makeFoldersDTO(f)
+	}
+
+	resp := GetFoldersResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        items,
+	}
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleCreateFolder(c *gin.Context) {
+	var r AddFolderRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	folder := &models.Folder{UserID: user.ID}
+	if r.Name != "" {
+		folder.Name = null.StringFrom(r.Name)
+	}
+
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		err := folder.Insert(tx, boil.Infer())
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+	resp := makeFoldersDTO(folder)
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleUpdateFolder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	var r UpdateFolderRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	var resp *Folder
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		f, err := models.FindFolder(tx, id)
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+		if r.Name != "" {
+			f.Name = null.StringFrom(r.Name)
+		}
+		_, err = f.Update(tx, boil.Infer())
+		resp = makeFoldersDTO(f)
+		return err
+	})
+
+	concludeRequest(c, resp, err)
+}
+
 //help functions
+
+func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
+	*user = *c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		return errs.NewForbiddenError(errors.New("inactive user"))
+	}
+	return nil
+
+}
 
 func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	if r.OrderBy != "" {
@@ -1161,5 +1282,16 @@ func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 		}
 	}
 
+	return &resp
+}
+
+func makeFoldersDTO(folder *models.Folder) *Folder {
+	resp := Folder{
+		ID: folder.ID,
+	}
+
+	if folder.Name.Valid {
+		resp.Name = folder.Name.String
+	}
 	return &resp
 }

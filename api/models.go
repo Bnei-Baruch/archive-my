@@ -17,6 +17,11 @@ type ListResponse struct {
 	Total int64 `json:"total"`
 }
 
+type NameRequest struct {
+	Name string `json:"name" binding:"omitempty,max=256"`
+}
+
+//Filters
 type IDsFilter struct {
 	IDs []int64 `json:"ids" form:"ids" binding:"omitempty"`
 }
@@ -25,6 +30,7 @@ type UIDsFilter struct {
 	UIDs []string `json:"uids" form:"uids" binding:"omitempty,dive,len=8"`
 }
 
+//Playlist
 type GetPlaylistsRequest struct {
 	ListRequest
 	ExistUnit string `json:"exist_cu" form:"exist_cu" binding:"omitempty"`
@@ -42,11 +48,12 @@ func NewPlaylistsResponse(total int64, numItems int) *PlaylistsResponse {
 }
 
 type PlaylistRequest struct {
-	Name       string                 `json:"name" binding:"omitempty,max=256"`
+	NameRequest
 	Public     bool                   `json:"public"`
 	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
+//PlaylistItem
 type PlaylistItemAddInfo struct {
 	Position       int    `json:"position" binding:"required"`
 	ContentUnitUID string `json:"content_unit_uid" binding:"required,len=8"`
@@ -69,6 +76,7 @@ type RemovePlaylistItemsRequest struct {
 	IDs []int64 `json:"ids" binding:"required"`
 }
 
+//Reaction
 type GetReactionsRequest struct {
 	ListRequest
 	UIDsFilter
@@ -95,6 +103,7 @@ type ReactionCountResponse struct {
 	SubjectType string `json:"type" form:"type" binding:"omitempty"`
 }
 
+//History
 type GetHistoryRequest struct {
 	ListRequest
 }
@@ -104,6 +113,7 @@ type HistoryResponse struct {
 	Items []*History `json:"items"`
 }
 
+//Subscription
 type GetSubscriptionsRequest struct {
 	ListRequest
 	SubscribeRequest
@@ -120,18 +130,19 @@ type SubscribeRequest struct {
 	ContentUnitUID string `json:"content_unit_uid" form:"content_unit_uid" binding:"omitempty"`
 }
 
-type BookmarksRequest struct {
+//Bookmark
+type GetBookmarksRequest struct {
 	ListRequest
-	BookmarkFolderIDs []int64 `json:"folder_ids" form:"folder_ids" binding:"omitempty,dive"`
+	FolderIDs []int64 `json:"folder_ids" form:"folder_ids" binding:"omitempty,dive"`
 }
 
-type BookmarksResponse struct {
+type GetBookmarksResponse struct {
 	ListResponse
 	Items []*Bookmark `json:"items"`
 }
 
 type AddBookmarksRequest struct {
-	Name       string                 `json:"name" binding:"omitempty,max=256"`
+	NameRequest
 	SourceUID  string                 `json:"source_uid" binding:"required,max=8"`
 	SourceType string                 `json:"source_type" binding:"required"`
 	FolderIDs  []int64                `json:"folder_ids" form:"folder_ids" binding:"omitempty"`
@@ -139,29 +150,27 @@ type AddBookmarksRequest struct {
 }
 
 type UpdateBookmarkRequest struct {
-	Name      string                 `json:"name" binding:"omitempty,max=256"`
+	NameRequest
 	FolderIDs []int64                `json:"folder_ids" form:"folder_ids" binding:"omitempty"`
 	Data      map[string]interface{} `json:"data" form:"data" binding:"omitempty"`
 }
 
-type FoldersRequest struct {
+//Folder
+type GetFoldersRequest struct {
 	ListRequest
 }
 
-type FoldersResponse struct {
+type GetFoldersResponse struct {
 	ListResponse
 	Items []*Folder `json:"items"`
 }
 
-type FolderRequest struct {
-	Name       string                 `json:"name" binding:"omitempty,max=256"`
-	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+type AddFolderRequest struct {
+	NameRequest
 }
 
-func NewBookmarkFoldersResponse(total int64, numItems int) *FoldersResponse {
-	return &FoldersResponse{
-		ListResponse: ListResponse{Total: total},
-		Items:        make([]*Folder, numItems)}
+type UpdateFolderRequest struct {
+	NameRequest
 }
 
 // DTOs

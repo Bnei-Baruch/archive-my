@@ -17,7 +17,7 @@ func (s *ApiTestSuite) TestBookmark_getBookmarks() {
 	// no Bookmarks whatsoever
 	req, _ := http.NewRequest(http.MethodGet, "/rest/bookmarks", nil)
 	s.apiAuthUser(req, user)
-	var resp BookmarksResponse
+	var resp GetBookmarksResponse
 	s.request200json(req, &resp)
 
 	s.EqualValues(0, resp.Total, "total")
@@ -195,7 +195,7 @@ func (s *ApiTestSuite) TestFolder_getFolder() {
 	// no Bookmarks Folder whatsoever
 	req, _ := http.NewRequest(http.MethodGet, "/rest/folders", nil)
 	s.apiAuthUser(req, user)
-	var resp BookmarksResponse
+	var resp GetBookmarksResponse
 	s.request200json(req, &resp)
 
 	s.EqualValues(0, resp.Total, "total")
