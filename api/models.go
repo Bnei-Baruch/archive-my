@@ -120,6 +120,50 @@ type SubscribeRequest struct {
 	ContentUnitUID string `json:"content_unit_uid" form:"content_unit_uid" binding:"omitempty"`
 }
 
+type BookmarksRequest struct {
+	ListRequest
+	BookmarkFolderIDs []int64 `json:"folder_ids" form:"folder_ids" binding:"omitempty,dive"`
+}
+
+type BookmarksResponse struct {
+	ListResponse
+	Items []*Bookmark `json:"items"`
+}
+
+type AddBookmarksRequest struct {
+	Name       string                 `json:"name" binding:"omitempty,max=256"`
+	SourceUID  string                 `json:"source_uid" binding:"required,max=8"`
+	SourceType string                 `json:"source_type" binding:"required"`
+	FolderIDs  []int64                `json:"folder_ids" form:"folder_ids" binding:"omitempty"`
+	Data       map[string]interface{} `json:"data" form:"data" binding:"omitempty"`
+}
+
+type UpdateBookmarkRequest struct {
+	Name      string                 `json:"name" binding:"omitempty,max=256"`
+	FolderIDs []int64                `json:"folder_ids" form:"folder_ids" binding:"omitempty"`
+	Data      map[string]interface{} `json:"data" form:"data" binding:"omitempty"`
+}
+
+type FoldersRequest struct {
+	ListRequest
+}
+
+type FoldersResponse struct {
+	ListResponse
+	Items []*Folder `json:"items"`
+}
+
+type FolderRequest struct {
+	Name       string                 `json:"name" binding:"omitempty,max=256"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+}
+
+func NewBookmarkFoldersResponse(total int64, numItems int) *FoldersResponse {
+	return &FoldersResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        make([]*Folder, numItems)}
+}
+
 // DTOs
 
 type Playlist struct {
@@ -168,4 +212,19 @@ type Subscription struct {
 	ContentUnitUID null.String `json:"content_unit_uid,omitempty"`
 	CreatedAt      time.Time   `json:"created_at"`
 	UpdatedAt      null.Time   `json:"updated_at,omitempty"`
+}
+
+type Bookmark struct {
+	ID         int64                  `json:"id"`
+	Name       string                 `json:"name"`
+	SourceUID  string                 `json:"source_uid"`
+	SourceType string                 `json:"source_type"`
+	Data       map[string]interface{} `json:"data,omitempty"`
+	FolderIds  []int64                `json:"folder_ids,omitempty"`
+}
+
+type Folder struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
 }

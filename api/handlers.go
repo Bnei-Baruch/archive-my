@@ -869,6 +869,193 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
+// Bookmarks handlers
+
+func (a *App) handleGetBookmarks(c *gin.Context) {
+	var r BookmarksRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+
+	var lMods []qm.QueryMod
+	if len(r.BookmarkFolderIDs) > 0 {
+		lMods = append(lMods, models.BookmarkFolderWhere.FolderID.IN(r.BookmarkFolderIDs))
+	}
+
+	mods := []qm.QueryMod{
+		models.BookmarkWhere.UserID.EQ(user.ID),
+		qm.Load(models.BookmarkRels.BookmarkFolders, lMods...),
+	}
+
+	total, err := models.Bookmarks(mods...).Count(db)
+
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(BookmarksResponse), nil)
+		return
+	}
+
+	bookmarks, err := models.Bookmarks(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Bookmark, len(bookmarks))
+	for i, b := range bookmarks {
+		items[i] = makeBookmarkDTO(b)
+	}
+
+	resp := BookmarksResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        items,
+	}
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleCreateBookmark(c *gin.Context) {
+	var r AddBookmarksRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	bookmark := &models.Bookmark{
+		UserID:     user.ID,
+		SourceUID:  r.SourceUID,
+		SourceType: r.SourceType,
+	}
+	if r.Name != "" {
+		bookmark.Name = null.StringFrom(r.Name)
+	}
+	if r.Data != nil {
+		data, err := json.Marshal(r.Data)
+		bookmark.Data = null.JSONFrom(data)
+		if err != nil {
+			errs.NewBadRequestError(err).Abort(c)
+			return
+		}
+	}
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		err := bookmark.Insert(tx, boil.Infer())
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+		if r.FolderIDs != nil {
+			bbfs := make([]*models.BookmarkFolder, len(r.FolderIDs))
+			for i, id := range r.FolderIDs {
+				bbfs[i] = &models.BookmarkFolder{
+					FolderID: id,
+				}
+			}
+			if err := bookmark.AddBookmarkFolders(tx, true, bbfs...); err != nil {
+				return pkgerr.WithStack(err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+	resp := makeBookmarkDTO(bookmark)
+	resp.FolderIds = r.FolderIDs
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleUpdateBookmark(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	var r UpdateBookmarkRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	resp := &Bookmark{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		b, err := models.Bookmarks(models.BookmarkWhere.ID.EQ(id), qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+		if r.Name != "" {
+			b.Name = null.StringFrom(r.Name)
+		}
+		if r.FolderIDs != nil {
+			bbfs := make([]*models.BookmarkFolder, len(r.FolderIDs))
+			for i, id := range r.FolderIDs {
+				bbfs[i] = &models.BookmarkFolder{
+					FolderID: id,
+				}
+			}
+			if err = b.AddBookmarkFolders(tx, true, bbfs...); err != nil {
+				return err
+			}
+		}
+		_, err = b.Update(tx, boil.Infer())
+		*resp = *makeBookmarkDTO(b)
+		return err
+	})
+
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleDeleteBookmark(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	user := c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+		return
+	}
+
+	var resp *Bookmark
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		b, err := models.FindBookmark(tx, id)
+
+		if err == sql.ErrNoRows {
+			return nil
+		}
+
+		if err != nil {
+			return pkgerr.Wrap(err, "fetch bookmark from db")
+		}
+		_, err = b.Delete(tx)
+		return err
+	})
+
+	concludeRequest(c, resp, err)
+}
+
 //help functions
 
 func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
@@ -946,6 +1133,31 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 				Position:       item.Position,
 				ContentUnitUID: item.ContentUnitUID,
 			}
+		}
+	}
+
+	return &resp
+}
+
+func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
+	resp := Bookmark{
+		ID:         bookmark.ID,
+		SourceUID:  bookmark.SourceUID,
+		SourceType: bookmark.SourceType,
+	}
+
+	if bookmark.Name.Valid {
+		resp.Name = bookmark.Name.String
+	}
+
+	if bookmark.Data.Valid {
+		utils.Must(bookmark.Data.Unmarshal(&resp.Data))
+	}
+
+	if bookmark.R != nil && bookmark.R.BookmarkFolders != nil {
+		resp.FolderIds = make([]int64, len(bookmark.R.BookmarkFolders))
+		for i, bbf := range bookmark.R.BookmarkFolders {
+			resp.FolderIds[i] = bbf.FolderID
 		}
 	}
 

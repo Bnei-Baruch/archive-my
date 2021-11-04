@@ -110,3 +110,35 @@ func (s *ModelsSuite) CreateReaction(user *models.User, kind, sType, sUID string
 
 	return reaction
 }
+
+func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data map[string]interface{}) *models.Bookmark {
+	bookmark := &models.Bookmark{
+		Name:       null.StringFrom(name),
+		UserID:     user.ID,
+		SourceUID:  utils.GenerateUID(8),
+		SourceType: sType,
+	}
+	if sType != "" {
+		bookmark.SourceType = "TEST_CONTENT_TYPE"
+	}
+
+	if data != nil {
+		dataJson, err := json.Marshal(data)
+		s.Require().NoError(err)
+		bookmark.Data = null.JSONFrom(dataJson)
+	}
+
+	s.Require().NoError(bookmark.Insert(s.MyDB.DB, boil.Infer()))
+
+	return bookmark
+}
+
+func (s *ModelsSuite) CreateFolder(user *models.User, name string) *models.Folder {
+	folder := &models.Folder{
+		Name:   null.StringFrom(name),
+		UserID: user.ID,
+	}
+
+	s.Require().NoError(folder.Insert(s.MyDB.DB, boil.Infer()))
+	return folder
+}

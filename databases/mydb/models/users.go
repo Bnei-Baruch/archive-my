@@ -114,11 +114,15 @@ var UserWhere = struct {
 
 // UserRels is where relationship names are stored.
 var UserRels = struct {
+	Bookmarks     string
+	Folders       string
 	Histories     string
 	Playlists     string
 	Reactions     string
 	Subscriptions string
 }{
+	Bookmarks:     "Bookmarks",
+	Folders:       "Folders",
 	Histories:     "Histories",
 	Playlists:     "Playlists",
 	Reactions:     "Reactions",
@@ -127,6 +131,8 @@ var UserRels = struct {
 
 // userR is where relationships are stored.
 type userR struct {
+	Bookmarks     BookmarkSlice     `boil:"Bookmarks" json:"Bookmarks" toml:"Bookmarks" yaml:"Bookmarks"`
+	Folders       FolderSlice       `boil:"Folders" json:"Folders" toml:"Folders" yaml:"Folders"`
 	Histories     HistorySlice      `boil:"Histories" json:"Histories" toml:"Histories" yaml:"Histories"`
 	Playlists     PlaylistSlice     `boil:"Playlists" json:"Playlists" toml:"Playlists" yaml:"Playlists"`
 	Reactions     ReactionSlice     `boil:"Reactions" json:"Reactions" toml:"Reactions" yaml:"Reactions"`
@@ -239,6 +245,48 @@ func (q userQuery) Exists(exec boil.Executor) (bool, error) {
 	return count > 0, nil
 }
 
+// Bookmarks retrieves all the bookmark's Bookmarks with an executor.
+func (o *User) Bookmarks(mods ...qm.QueryMod) bookmarkQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"bookmark\".\"user_id\"=?", o.ID),
+	)
+
+	query := Bookmarks(queryMods...)
+	queries.SetFrom(query.Query, "\"bookmark\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"bookmark\".*"})
+	}
+
+	return query
+}
+
+// Folders retrieves all the folder's Folders with an executor.
+func (o *User) Folders(mods ...qm.QueryMod) folderQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"folder\".\"user_id\"=?", o.ID),
+	)
+
+	query := Folders(queryMods...)
+	queries.SetFrom(query.Query, "\"folder\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"folder\".*"})
+	}
+
+	return query
+}
+
 // Histories retrieves all the history's Histories with an executor.
 func (o *User) Histories(mods ...qm.QueryMod) historyQuery {
 	var queryMods []qm.QueryMod
@@ -321,6 +369,188 @@ func (o *User) Subscriptions(mods ...qm.QueryMod) subscriptionQuery {
 	}
 
 	return query
+}
+
+// LoadBookmarks allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadBookmarks(e boil.Executor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		object = maybeUser.(*User)
+	} else {
+		slice = *maybeUser.(*[]*User)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`bookmark`),
+		qm.WhereIn(`bookmark.user_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.Query(e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load bookmark")
+	}
+
+	var resultSlice []*Bookmark
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice bookmark")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on bookmark")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for bookmark")
+	}
+
+	if singular {
+		object.R.Bookmarks = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &bookmarkR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.UserID {
+				local.R.Bookmarks = append(local.R.Bookmarks, foreign)
+				if foreign.R == nil {
+					foreign.R = &bookmarkR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadFolders allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadFolders(e boil.Executor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		object = maybeUser.(*User)
+	} else {
+		slice = *maybeUser.(*[]*User)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`folder`),
+		qm.WhereIn(`folder.user_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.Query(e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load folder")
+	}
+
+	var resultSlice []*Folder
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice folder")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on folder")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for folder")
+	}
+
+	if singular {
+		object.R.Folders = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &folderR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.UserID {
+				local.R.Folders = append(local.R.Folders, foreign)
+				if foreign.R == nil {
+					foreign.R = &folderR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 // LoadHistories allows an eager lookup of values, cached into the
@@ -684,6 +914,110 @@ func (userL) LoadSubscriptions(e boil.Executor, singular bool, maybeUser interfa
 		}
 	}
 
+	return nil
+}
+
+// AddBookmarks adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.Bookmarks.
+// Sets related.R.User appropriately.
+func (o *User) AddBookmarks(exec boil.Executor, insert bool, related ...*Bookmark) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.UserID = o.ID
+			if err = rel.Insert(exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"bookmark\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, bookmarkPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+			if _, err = exec.Exec(updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.UserID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			Bookmarks: related,
+		}
+	} else {
+		o.R.Bookmarks = append(o.R.Bookmarks, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &bookmarkR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
+	return nil
+}
+
+// AddFolders adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.Folders.
+// Sets related.R.User appropriately.
+func (o *User) AddFolders(exec boil.Executor, insert bool, related ...*Folder) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.UserID = o.ID
+			if err = rel.Insert(exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"folder\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, folderPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+			if _, err = exec.Exec(updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.UserID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			Folders: related,
+		}
+	} else {
+		o.R.Folders = append(o.R.Folders, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &folderR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
 	return nil
 }
 
