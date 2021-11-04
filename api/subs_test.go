@@ -94,7 +94,7 @@ func (s *ApiTestSuite) TestSubscribe_subscribe_fail() {
 
 	//wrong collection uid
 	payload, err := json.Marshal(map[string]interface{}{
-		"collection_uid": utils.GenerateUID(rand.Intn(10) + 8),
+		"collection_uid": utils.GenerateUID(rand.Intn(10) + 9),
 	})
 	s.NoError(err, "json.Marshal")
 	req, _ := http.NewRequest(http.MethodPost, "/rest/subscriptions", bytes.NewReader(payload))
