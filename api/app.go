@@ -33,10 +33,14 @@ func (a *App) Initialize() {
 	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	utils.Must(err)
 
-	a.InitializeWithDeps(db, verifier)
+	log.Info().Msg("Setting up connection to MDB")
+	mdb, err := sql.Open("postgres", common.Config.MDBUrl)
+	utils.Must(err)
+
+	a.InitializeWithDeps(db, mdb, verifier)
 }
 
-func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenVerifier) {
+func (a *App) InitializeWithDeps(db, mdb *sql.DB, tokenVerifier middleware.OIDCTokenVerifier) {
 	a.DB = db
 
 	gin.SetMode(common.Config.GinMode)
@@ -66,7 +70,7 @@ func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenV
 	a.initRoutes(tokenVerifier)
 
 	a.chronicles = new(chronicles.Chronicles)
-	a.chronicles.Init()
+	a.chronicles.InitWithDeps(db, mdb)
 	instrumentation.Stats.Init()
 }
 
@@ -82,7 +86,7 @@ func (a *App) Run() {
 }
 
 func (a *App) Shutdown() {
-	a.chronicles.Stop()
+	a.chronicles.Shutdown()
 
 	if err := a.DB.Close(); err != nil {
 		log.Error().Err(err).Msg("DB.close")

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/Bnei-Baruch/archive-my/common"
+	"github.com/Bnei-Baruch/archive-my/databases/mdb"
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/domain"
 	"github.com/Bnei-Baruch/archive-my/middleware"
@@ -23,6 +24,7 @@ import (
 
 type ApiTestSuite struct {
 	domain.ModelsSuite
+	MDB           *testutil.TestMDBManager
 	tokenVerifier *mocks.OIDCTokenVerifier
 	app           *App
 }
@@ -32,8 +34,11 @@ func (s *ApiTestSuite) SetupSuite() {
 	s.app = new(App)
 	s.MyDB = new(testutil.TestMyDBManager)
 	s.Require().NoError(s.MyDB.Init())
+	s.MDB = new(testutil.TestMDBManager)
+	s.Require().NoError(s.MDB.Init())
+	s.Require().NoError(mdb.InitCT(s.MDB.DB))
 	s.tokenVerifier = new(mocks.OIDCTokenVerifier)
-	s.app.InitializeWithDeps(s.MyDB.DB, s.tokenVerifier)
+	s.app.InitializeWithDeps(s.MyDB.DB, s.MDB.DB, s.tokenVerifier)
 }
 
 func (s *ApiTestSuite) TearDownSuite() {
