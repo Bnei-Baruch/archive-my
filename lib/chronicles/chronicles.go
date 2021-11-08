@@ -132,6 +132,7 @@ func (c *Chronicles) Stop() {
 }
 
 func (c *Chronicles) Shutdown() {
+	c.Stop()
 	c.MyDB.Close()
 	c.MDB.Close()
 	c.chroniclesClient.CloseIdleConnections()
