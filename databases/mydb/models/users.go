@@ -253,14 +253,14 @@ func (o *User) Bookmarks(mods ...qm.QueryMod) bookmarkQuery {
 	}
 
 	queryMods = append(queryMods,
-		qm.Where("\"bookmark\".\"user_id\"=?", o.ID),
+		qm.Where("\"bookmarks\".\"user_id\"=?", o.ID),
 	)
 
 	query := Bookmarks(queryMods...)
-	queries.SetFrom(query.Query, "\"bookmark\"")
+	queries.SetFrom(query.Query, "\"bookmarks\"")
 
 	if len(queries.GetSelect(query.Query)) == 0 {
-		queries.SetSelect(query.Query, []string{"\"bookmark\".*"})
+		queries.SetSelect(query.Query, []string{"\"bookmarks\".*"})
 	}
 
 	return query
@@ -274,14 +274,14 @@ func (o *User) Folders(mods ...qm.QueryMod) folderQuery {
 	}
 
 	queryMods = append(queryMods,
-		qm.Where("\"folder\".\"user_id\"=?", o.ID),
+		qm.Where("\"folders\".\"user_id\"=?", o.ID),
 	)
 
 	query := Folders(queryMods...)
-	queries.SetFrom(query.Query, "\"folder\"")
+	queries.SetFrom(query.Query, "\"folders\"")
 
 	if len(queries.GetSelect(query.Query)) == 0 {
-		queries.SetSelect(query.Query, []string{"\"folder\".*"})
+		queries.SetSelect(query.Query, []string{"\"folders\".*"})
 	}
 
 	return query
@@ -411,8 +411,8 @@ func (userL) LoadBookmarks(e boil.Executor, singular bool, maybeUser interface{}
 	}
 
 	query := NewQuery(
-		qm.From(`bookmark`),
-		qm.WhereIn(`bookmark.user_id in ?`, args...),
+		qm.From(`bookmarks`),
+		qm.WhereIn(`bookmarks.user_id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -420,19 +420,19 @@ func (userL) LoadBookmarks(e boil.Executor, singular bool, maybeUser interface{}
 
 	results, err := query.Query(e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load bookmark")
+		return errors.Wrap(err, "failed to eager load bookmarks")
 	}
 
 	var resultSlice []*Bookmark
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice bookmark")
+		return errors.Wrap(err, "failed to bind eager loaded slice bookmarks")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on bookmark")
+		return errors.Wrap(err, "failed to close results in eager load on bookmarks")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for bookmark")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for bookmarks")
 	}
 
 	if singular {
@@ -502,8 +502,8 @@ func (userL) LoadFolders(e boil.Executor, singular bool, maybeUser interface{}, 
 	}
 
 	query := NewQuery(
-		qm.From(`folder`),
-		qm.WhereIn(`folder.user_id in ?`, args...),
+		qm.From(`folders`),
+		qm.WhereIn(`folders.user_id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -511,19 +511,19 @@ func (userL) LoadFolders(e boil.Executor, singular bool, maybeUser interface{}, 
 
 	results, err := query.Query(e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load folder")
+		return errors.Wrap(err, "failed to eager load folders")
 	}
 
 	var resultSlice []*Folder
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice folder")
+		return errors.Wrap(err, "failed to bind eager loaded slice folders")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on folder")
+		return errors.Wrap(err, "failed to close results in eager load on folders")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for folder")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for folders")
 	}
 
 	if singular {
@@ -931,7 +931,7 @@ func (o *User) AddBookmarks(exec boil.Executor, insert bool, related ...*Bookmar
 			}
 		} else {
 			updateQuery := fmt.Sprintf(
-				"UPDATE \"bookmark\" SET %s WHERE %s",
+				"UPDATE \"bookmarks\" SET %s WHERE %s",
 				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
 				strmangle.WhereClause("\"", "\"", 2, bookmarkPrimaryKeyColumns),
 			)
@@ -983,7 +983,7 @@ func (o *User) AddFolders(exec boil.Executor, insert bool, related ...*Folder) e
 			}
 		} else {
 			updateQuery := fmt.Sprintf(
-				"UPDATE \"folder\" SET %s WHERE %s",
+				"UPDATE \"folders\" SET %s WHERE %s",
 				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
 				strmangle.WhereClause("\"", "\"", 2, folderPrimaryKeyColumns),
 			)

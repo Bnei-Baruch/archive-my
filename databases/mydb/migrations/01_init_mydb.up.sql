@@ -105,9 +105,9 @@ CREATE TABLE bookmarks
 DROP TABLE IF EXISTS bookmark_folder;
 CREATE TABLE bookmark_folder
 (
-    bookmark_id        BIGINT REFERENCES bookmark ON DELETE CASCADE        NOT NULL,
-    folder_id BIGINT REFERENCES folder ON DELETE CASCADE NOT NULL,
-    position           INTEGER,
+    bookmark_id BIGINT REFERENCES bookmarks ON DELETE CASCADE NOT NULL,
+    folder_id   BIGINT REFERENCES folders ON DELETE CASCADE   NOT NULL,
+    position    INTEGER,
     PRIMARY KEY (folder_id, bookmark_id)
 );
 

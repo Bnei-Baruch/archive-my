@@ -53,6 +53,29 @@ var BookmarkFolderTableColumns = struct {
 
 // Generated where
 
+type whereHelperint64 struct{ field string }
+
+func (w whereHelperint64) EQ(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperint64) NEQ(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperint64) LT(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperint64) LTE(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperint64) GT(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperint64) GTE(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperint64) IN(slice []int64) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperint64) NIN(slice []int64) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
+
 type whereHelpernull_Int struct{ field string }
 
 func (w whereHelpernull_Int) EQ(x null.Int) qm.QueryMod {
@@ -217,7 +240,7 @@ func (o *BookmarkFolder) Bookmark(mods ...qm.QueryMod) bookmarkQuery {
 	queryMods = append(queryMods, mods...)
 
 	query := Bookmarks(queryMods...)
-	queries.SetFrom(query.Query, "\"bookmark\"")
+	queries.SetFrom(query.Query, "\"bookmarks\"")
 
 	return query
 }
@@ -231,7 +254,7 @@ func (o *BookmarkFolder) Folder(mods ...qm.QueryMod) folderQuery {
 	queryMods = append(queryMods, mods...)
 
 	query := Folders(queryMods...)
-	queries.SetFrom(query.Query, "\"folder\"")
+	queries.SetFrom(query.Query, "\"folders\"")
 
 	return query
 }
@@ -278,8 +301,8 @@ func (bookmarkFolderL) LoadBookmark(e boil.Executor, singular bool, maybeBookmar
 	}
 
 	query := NewQuery(
-		qm.From(`bookmark`),
-		qm.WhereIn(`bookmark.id in ?`, args...),
+		qm.From(`bookmarks`),
+		qm.WhereIn(`bookmarks.id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -296,10 +319,10 @@ func (bookmarkFolderL) LoadBookmark(e boil.Executor, singular bool, maybeBookmar
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for bookmark")
+		return errors.Wrap(err, "failed to close results of eager load for bookmarks")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for bookmark")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for bookmarks")
 	}
 
 	if len(resultSlice) == 0 {
@@ -374,8 +397,8 @@ func (bookmarkFolderL) LoadFolder(e boil.Executor, singular bool, maybeBookmarkF
 	}
 
 	query := NewQuery(
-		qm.From(`folder`),
-		qm.WhereIn(`folder.id in ?`, args...),
+		qm.From(`folders`),
+		qm.WhereIn(`folders.id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -392,10 +415,10 @@ func (bookmarkFolderL) LoadFolder(e boil.Executor, singular bool, maybeBookmarkF
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for folder")
+		return errors.Wrap(err, "failed to close results of eager load for folders")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for folder")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for folders")
 	}
 
 	if len(resultSlice) == 0 {
