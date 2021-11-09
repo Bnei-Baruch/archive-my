@@ -81,8 +81,8 @@ CREATE TABLE history
 );
 
 
-DROP TABLE IF EXISTS folder;
-CREATE TABLE folder
+DROP TABLE IF EXISTS folders;
+CREATE TABLE folders
 (
     id         BIGSERIAL PRIMARY KEY,
     name       VARCHAR(256),
@@ -90,8 +90,8 @@ CREATE TABLE folder
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
-DROP TABLE IF EXISTS bookmark;
-CREATE TABLE bookmark
+DROP TABLE IF EXISTS bookmarks;
+CREATE TABLE bookmarks
 (
     id          BIGSERIAL PRIMARY KEY,
     name        VARCHAR(256),
