@@ -188,33 +188,33 @@ func (s *ApiTestSuite) TestBookmark_deleteBookmark() {
 }
 
 //Folder tests
-/*
+
 func (s *ApiTestSuite) TestFolder_getFolder() {
 	user := s.CreateUser()
 
 	// no Bookmarks Folder whatsoever
 	req, _ := http.NewRequest(http.MethodGet, "/rest/folders", nil)
 	s.apiAuthUser(req, user)
-	var resp GetBookmarksResponse
+	var resp GetFoldersResponse
 	s.request200json(req, &resp)
 
 	s.EqualValues(0, resp.Total, "total")
 	s.Empty(resp.Items, "items empty")
 
 	// with Bookmarks
-	bookmarks := make([]*models.Bookmark, 5)
-	for i := range bookmarks {
-		bookmarks[i] = s.CreateBookmark(user, fmt.Sprintf("Bookmark-%d", i), "", nil)
+	folders := make([]*models.Folder, 5)
+	for i := range folders {
+		folders[i] = s.CreateFolder(user, fmt.Sprintf("Folder-%d", i))
 	}
 
-	req, _ = http.NewRequest(http.MethodGet, "/rest/bookmarks?order_by=id", nil)
+	req, _ = http.NewRequest(http.MethodGet, "/rest/folders?order_by=id", nil)
 	s.apiAuthUser(req, user)
 	s.request200json(req, &resp)
 
-	s.EqualValues(len(bookmarks), resp.Total, "total")
-	s.Require().Len(resp.Items, len(bookmarks), "items length")
+	s.EqualValues(len(folders), resp.Total, "total")
+	s.Require().Len(resp.Items, len(folders), "items length")
 	for i, x := range resp.Items {
-		s.assertBookmark(bookmarks[i], x, i)
+		s.assertFolders(folders[i], x, i)
 	}
 
 	// other users see no Bookmarks
@@ -226,18 +226,13 @@ func (s *ApiTestSuite) TestFolder_getFolder() {
 	s.EqualValues(0, resp.Total, "total")
 	s.Empty(resp.Items, "items empty")
 }
-*/
-/*
-func (s *ApiTestSuite) TestBookmark_createBookmark_badRequest() {
+
+func (s *ApiTestSuite) TestBookmark_createFolder_badRequest() {
 	user := s.CreateUser()
 
-	// bad properties json
+	// too long name
 	payload, err := json.Marshal(map[string]interface{}{
-		"name":        "test bookmark",
-		"source_uid":  "12345678",
-		"source_type": "TEST",
-		"folder_ids":  "[1, 2]",
-		"data":        "malformed json {}",
+		"name": strings.Repeat("*", 257),
 	})
 	s.Require().NoError(err)
 	req, _ := http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
@@ -245,127 +240,71 @@ func (s *ApiTestSuite) TestBookmark_createBookmark_badRequest() {
 	resp := s.request(req)
 	s.Require().Equal(http.StatusBadRequest, resp.Code)
 
-	// too long name
-	payload, err = json.Marshal(map[string]interface{}{
-		"name": strings.Repeat("*", 257),
-	})
-	s.Require().NoError(err)
-	req, _ = http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
-	s.apiAuthUser(req, user)
-	resp = s.request(req)
-	s.Require().Equal(http.StatusBadRequest, resp.Code)
-
-	// no required source uid
-	payload, err = json.Marshal(map[string]interface{}{
-		"name":        "test bookmark",
-		"source_type": "TEST",
-	})
-	s.Require().NoError(err)
-	req, _ = http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
-	s.apiAuthUser(req, user)
-	resp = s.request(req)
-	s.Require().Equal(http.StatusBadRequest, resp.Code)
-
-	// no required source content type
-	payload, err = json.Marshal(map[string]interface{}{
-		"name":       "test bookmark",
-		"source_uid": "12345678",
-	})
-	s.Require().NoError(err)
-	req, _ = http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
-	s.apiAuthUser(req, user)
-	resp = s.request(req)
-	s.Require().Equal(http.StatusBadRequest, resp.Code)
 }
 
-func (s *ApiTestSuite) TestBookmark_createBookmark() {
+func (s *ApiTestSuite) TestBookmark_createFolder() {
 	user := s.CreateUser()
-	f1 := s.CreateFolder(user, "test bookmark folder 1")
-	f2 := s.CreateFolder(user, "test bookmark folder 2")
-	bName := "test bookmark"
+	name := "test bookmark folder"
 
-	var resp Bookmark
-	payload, err := json.Marshal(map[string]interface{}{
-		"name":        bName,
-		"source_uid":  "12345678",
-		"source_type": "TEST",
-		"folder_ids":  []int64{f1.ID, f2.ID},
-		"data": map[string]interface{}{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	})
+	var resp Folder
+	payload, err := json.Marshal(map[string]interface{}{"name": name})
 	s.Require().NoError(err)
-	req, _ := http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
+	req, _ := http.NewRequest(http.MethodPost, "/rest/folders", bytes.NewReader(payload))
 	s.apiAuthUser(req, user)
 	s.request200json(req, &resp)
 
 	s.NotZero(resp.ID, "ID")
-	s.Equal(resp.Name, bName, "Name")
-	s.Len(resp.Data, 2, "props count")
-	s.Equal(resp.Data["key1"], "value1", "prop 1")
-	s.Equal(resp.Data["key2"], "value2", "prop 2")
-	s.Len(resp.FolderIds, 2, "folders count")
-	s.Equal(resp.FolderIds[0], f1.ID, "folder 1")
-	s.Equal(resp.FolderIds[1], f2.ID, "folder 2")
+	s.Equal(resp.Name, name, "Name")
 }
 
-func (s *ApiTestSuite) TestBookmark_updateBookmark() {
+func (s *ApiTestSuite) TestBookmark_updateFolder() {
 	user := s.CreateUser()
-	data := map[string]interface{}{
-		"key1": "value1",
-	}
-	bookmark := s.CreateBookmark(user, "bookmark", "", data)
+	folder := s.CreateFolder(user, "bookmark folder")
 
-	payload, err := json.Marshal(map[string]interface{}{
-		"name": "edited bookmark",
-		"data": map[string]interface{}{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	})
+	payload, err := json.Marshal(map[string]interface{}{"name": "edited bookmark folder"})
 	s.Require().NoError(err)
 
-	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/rest/bookmarks/%d", bookmark.ID), bytes.NewReader(payload))
+	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/rest/folders/%d", folder.ID), bytes.NewReader(payload))
 	s.apiAuthUser(req, user)
-	var resp Bookmark
+	var resp Folder
 	s.request200json(req, &resp)
 
-	s.Require().NoError(bookmark.Reload(s.MyDB.DB))
-	s.assertBookmark(bookmark, &resp, 0)
+	s.Require().NoError(folder.Reload(s.MyDB.DB))
+	s.assertFolders(folder, &resp, 0)
 }
 
-func (s *ApiTestSuite) TestBookmark_deleteBookmark() {
+func (s *ApiTestSuite) TestBookmark_deleteFolder() {
 	user := s.CreateUser()
-	bookmark := s.CreateBookmark(user, "bookmark", "", nil)
+	folder := s.CreateFolder(user, "bookmark folder")
 	bbfs := make([]*models.BookmarkFolder, 5)
 	for i, _ := range bbfs {
-		f := s.CreateFolder(user, fmt.Sprintf("test bookmark folder %d", i))
+		b := s.CreateBookmark(user, fmt.Sprintf("test bookmark folder %d", i), "", nil)
 		bbfs[i] = &models.BookmarkFolder{
-			BookmarkFolderID: f.ID,
+			BookmarkID: b.ID,
 		}
 	}
-	s.NoError(bookmark.AddBookmarkFolders(s.MyDB.DB, true, bbfs...))
+	s.NoError(folder.AddBookmarkFolders(s.MyDB.DB, true, bbfs...))
 
-	count, err := models.BookmarkFolders(models.BookmarkFolderWhere.BookmarkID.EQ(bookmark.ID)).Count(s.MyDB.DB)
+	count, err := models.BookmarkFolders(models.BookmarkFolderWhere.FolderID.EQ(folder.ID)).Count(s.MyDB.DB)
 	s.NoError(err)
 	s.EqualValues(5, count)
 
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/bookmarks/%d", bookmark.ID), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/folders/%d", folder.ID), nil)
 	s.apiAuthUser(req, user)
 	resp := s.request(req)
 	s.Equal(http.StatusOK, resp.Code)
 
-	count, err = models.BookmarkFolders(models.BookmarkFolderWhere.BookmarkID.EQ(bookmark.ID)).Count(s.MyDB.DB)
+	count, err = models.BookmarkFolders(models.BookmarkFolderWhere.FolderID.EQ(folder.ID)).Count(s.MyDB.DB)
 	s.NoError(err)
 	s.EqualValues(0, count)
 
-	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/bookmarks/%d", bookmark.ID), nil)
+	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/folders/%d", folder.ID), nil)
 	s.apiAuthUser(req, user)
 	resp = s.request(req)
 	s.Equal(http.StatusNotFound, resp.Code)
 }
-*/
+
+//help functions
 func (s *ApiTestSuite) assertBookmark(expected *models.Bookmark, actual *Bookmark, idx int) {
 	s.Equal(expected.ID, actual.ID, "ID [%d]", idx)
 	s.Equal(expected.Name.String, actual.Name, "Name [%d]", idx)
@@ -377,4 +316,9 @@ func (s *ApiTestSuite) assertBookmark(expected *models.Bookmark, actual *Bookmar
 		s.Require().NoError(expected.Data.Unmarshal(&data))
 		s.Equal(data, actual.Data, "Data [%d]", idx)
 	}
+}
+
+func (s *ApiTestSuite) assertFolders(expected *models.Folder, actual *Folder, idx int) {
+	s.Equal(expected.ID, actual.ID, "ID [%d]", idx)
+	s.Equal(expected.Name.String, actual.Name, "Name [%d]", idx)
 }

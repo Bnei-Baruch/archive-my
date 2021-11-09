@@ -128,10 +128,10 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest.POST("/bookmarks", a.handleCreateBookmark)
 	rest.PUT("/bookmarks/:id", a.handleUpdateBookmark)
 	rest.DELETE("/bookmarks/:id", a.handleDeleteBookmark)
-	/*
-		rest.GET("/folders", a.handleGetFolders)
-		rest.POST("/folders", a.handleCreateFolder)
-		rest.PUT("/folders/:id", a.handleUpdateFolder)
-		rest.DELETE("/folders/:id", a.handleDeleteFolder)
-	*/
+
+	rest.GET("/folders", a.handleGetFolders)
+	rest.POST("/folders", a.handleCreateFolder)
+	rest.PUT("/folders/:id", a.handleUpdateFolder)
+	rest.DELETE("/folders/:id", a.handleDeleteFolder)
+
 }

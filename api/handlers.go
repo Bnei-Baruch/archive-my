@@ -1036,7 +1036,6 @@ func (a *App) handleDeleteBookmark(c *gin.Context) {
 		return
 	}
 
-	var resp *Bookmark
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
 		b, err := models.FindBookmark(tx, id)
@@ -1052,7 +1051,7 @@ func (a *App) handleDeleteBookmark(c *gin.Context) {
 		return err
 	})
 
-	concludeRequest(c, resp, err)
+	concludeRequest(c, nil, err)
 }
 
 //Folder handlers
@@ -1080,6 +1079,10 @@ func (a *App) handleGetFolders(c *gin.Context) {
 		return
 	}
 
+	if r.BookmarkIdFilter != 0 {
+		mods = append(mods, qm.Load("BookmarkFolders", models.BookmarkFolderWhere.BookmarkID.EQ(r.BookmarkIdFilter)))
+	}
+	appendNameFilter(&mods, r.QueryFilter, "name")
 	folders, err := models.Folders(mods...).All(db)
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
@@ -1168,6 +1171,37 @@ func (a *App) handleUpdateFolder(c *gin.Context) {
 	concludeRequest(c, resp, err)
 }
 
+func (a *App) handleDeleteFolder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		b, err := models.FindFolder(tx, id)
+
+		if err == sql.ErrNoRows {
+			return nil
+		}
+
+		if err != nil {
+			return pkgerr.Wrap(err, "fetch folder from db")
+		}
+		_, err = b.Delete(tx)
+		return err
+	})
+
+	concludeRequest(c, nil, err)
+}
+
 //help functions
 
 func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
@@ -1203,6 +1237,14 @@ func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	}
 
 	return limit, offset
+}
+
+func appendNameFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
+	if r.Query == "" {
+		return
+	}
+	q := fmt.Sprintf("%s LIKE '%%%s%%'", column, r.Query)
+	*mods = append(*mods, qm.Where(q))
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {
@@ -1293,5 +1335,13 @@ func makeFoldersDTO(folder *models.Folder) *Folder {
 	if folder.Name.Valid {
 		resp.Name = folder.Name.String
 	}
+
+	if folder.R != nil && folder.R.BookmarkFolders != nil {
+		resp.BookmarkIds = make([]int64, len(folder.R.BookmarkFolders))
+		for i, bbf := range folder.R.BookmarkFolders {
+			resp.BookmarkIds[i] = bbf.BookmarkID
+		}
+	}
+
 	return &resp
 }

@@ -82,16 +82,6 @@ type ChronicleEventData struct {
 	CurrentTime null.Float64 `json:"current_time,omitempty"`
 }
 
-func (c *Chronicles) Init() {
-	mydbConn, err := sql.Open("postgres", common.Config.MyDBUrl)
-	utils.Must(err)
-
-	mdbConn, err := sql.Open("postgres", common.Config.MDBUrl)
-	utils.Must(err)
-
-	c.InitWithDeps(mydbConn, mdbConn)
-}
-
 func (c *Chronicles) InitWithDeps(mydbConn, mdbConn *sql.DB) {
 	c.MyDB = mydbConn
 

@@ -30,6 +30,10 @@ type UIDsFilter struct {
 	UIDs []string `json:"uids" form:"uids" binding:"omitempty,dive,len=8"`
 }
 
+type QueryFilter struct {
+	Query string `json:"query" form:"query" binding:"omitempty"`
+}
+
 //Playlist
 type GetPlaylistsRequest struct {
 	ListRequest
@@ -158,6 +162,8 @@ type UpdateBookmarkRequest struct {
 //Folder
 type GetFoldersRequest struct {
 	ListRequest
+	QueryFilter
+	BookmarkIdFilter int64 `json:"bookmark_id" form:"bookmark_id" binding:"omitempty"`
 }
 
 type GetFoldersResponse struct {
@@ -233,7 +239,8 @@ type Bookmark struct {
 }
 
 type Folder struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	CreatedAt   time.Time `json:"created_at"`
+	BookmarkIds []int64   `json:"bookmark_ids,omitempty"`
 }
