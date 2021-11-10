@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -154,6 +155,68 @@ func (s *ApiTestSuite) TestBookmark_updateBookmark() {
 
 	s.Require().NoError(bookmark.Reload(s.MyDB.DB))
 	s.assertBookmark(bookmark, &resp, 0)
+}
+
+func (s *ApiTestSuite) TestBookmark_updateBookmarkFolders() {
+	user := s.CreateUser()
+	bookmark := s.CreateBookmark(user, "bookmark", "", nil)
+
+	flen := 10 + rand.Intn(3)
+	folders := make([]*models.Folder, flen)
+	forUpdate := make([]int64, 0)
+	addOnCreate := make([]int64, 0)
+	notAddOnCreate := make([]int64, 0)
+	for i, _ := range folders {
+		folders[i] = s.CreateFolder(user, fmt.Sprintf("bookmark folder %d", i))
+		if rand.Int()%2 == 0 {
+			addOnCreate = append(addOnCreate, folders[i].ID)
+			if rand.Intn(3)%3 == 0 {
+				forUpdate = append(forUpdate, folders[i].ID)
+			}
+		} else {
+			notAddOnCreate = append(notAddOnCreate, folders[i].ID)
+			if rand.Intn(3)%3 == 0 {
+				forUpdate = append(forUpdate, folders[i].ID)
+			}
+		}
+	}
+
+	bfs := make([]*models.BookmarkFolder, len(addOnCreate))
+	folderIds := make([]int64, len(bfs))
+	for i, id := range addOnCreate {
+		bfs[i] = &models.BookmarkFolder{
+			FolderID: id,
+		}
+		folderIds[i] = id
+	}
+
+	_ = bookmark.AddBookmarkFolders(s.MyDB.DB, true, bfs...)
+
+	count, err := models.BookmarkFolders(
+		models.BookmarkFolderWhere.BookmarkID.EQ(bookmark.ID),
+	).Count(s.MyDB.DB)
+	s.NoError(err)
+	s.EqualValues(len(addOnCreate), count)
+
+	payload, err := json.Marshal(map[string]interface{}{
+		"folder_ids": addOnCreate,
+	})
+	s.Require().NoError(err)
+	req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/rest/bookmarks/%d", bookmark.ID), bytes.NewReader(payload))
+	s.apiAuthUser(req, user)
+	var resp Bookmark
+	s.request200json(req, &resp)
+	s.EqualValues(addOnCreate, resp.FolderIds)
+
+	payload, err = json.Marshal(map[string]interface{}{
+		"folder_ids": forUpdate,
+	})
+	s.Require().NoError(err)
+	req, _ = http.NewRequest(http.MethodPut, fmt.Sprintf("/rest/bookmarks/%d", bookmark.ID), bytes.NewReader(payload))
+	s.apiAuthUser(req, user)
+	s.request200json(req, &resp)
+	s.EqualValues(forUpdate, resp.FolderIds)
+
 }
 
 func (s *ApiTestSuite) TestBookmark_deleteBookmark() {
@@ -315,6 +378,14 @@ func (s *ApiTestSuite) assertBookmark(expected *models.Bookmark, actual *Bookmar
 		var data map[string]interface{}
 		s.Require().NoError(expected.Data.Unmarshal(&data))
 		s.Equal(data, actual.Data, "Data [%d]", idx)
+	}
+
+	if expected.R != nil && expected.R.BookmarkFolders != nil {
+		fIDs := make([]int64, len(expected.R.BookmarkFolders))
+		for i, x := range expected.R.BookmarkFolders {
+			fIDs[i] = x.FolderID
+		}
+		s.Equal(fIDs, actual.FolderIds, "FolderIds [%d]", idx)
 	}
 }
 

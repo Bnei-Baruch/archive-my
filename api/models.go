@@ -137,7 +137,8 @@ type SubscribeRequest struct {
 //Bookmark
 type GetBookmarksRequest struct {
 	ListRequest
-	FolderIDs []int64 `json:"folder_ids" form:"folder_ids" binding:"omitempty,dive"`
+	QueryFilter
+	FolderIDsFilter []int64 `json:"folder_ids" form:"folder_id" binding:"omitempty"`
 }
 
 type GetBookmarksResponse struct {

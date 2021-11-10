@@ -884,22 +884,22 @@ func (a *App) handleGetBookmarks(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 
-	var lMods []qm.QueryMod
-	if len(r.FolderIDs) > 0 {
-		lMods = append(lMods, models.BookmarkFolderWhere.FolderID.IN(r.FolderIDs))
-	}
-
-	mods := []qm.QueryMod{
-		models.BookmarkWhere.UserID.EQ(user.ID),
-		qm.Load(models.BookmarkRels.BookmarkFolders, lMods...),
-	}
+	mods := []qm.QueryMod{models.BookmarkWhere.UserID.EQ(user.ID)}
 
 	total, err := models.Bookmarks(mods...).Count(db)
 
+	mods = append(mods, qm.Load(models.BookmarkRels.BookmarkFolders))
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
 		concludeRequest(c, new(GetBookmarksResponse), nil)
 		return
+	}
+	appendQueryFilter(&mods, r.QueryFilter, "name")
+	if len(r.FolderIDsFilter) > 0 {
+		mods = append(mods,
+			qm.InnerJoin("bookmark_folder bf ON id = bf.bookmark_id"),
+			qm.WhereIn("bf.folder_id in ?", utils.ConvertArgsInt64(r.FolderIDsFilter)...),
+		)
 	}
 
 	bookmarks, err := models.Bookmarks(mods...).All(db)
@@ -1005,19 +1005,49 @@ func (a *App) handleUpdateBookmark(c *gin.Context) {
 			b.Name = null.StringFrom(r.Name)
 		}
 		if r.FolderIDs != nil {
-			bbfs := make([]*models.BookmarkFolder, len(r.FolderIDs))
-			for i, id := range r.FolderIDs {
-				bbfs[i] = &models.BookmarkFolder{
-					FolderID: id,
+			if len(r.FolderIDs) == 0 {
+				_, err = b.R.BookmarkFolders.DeleteAll(tx)
+				if err != nil {
+					return err
+				}
+			} else {
+				forAdd, forDel := diffBFs(r.FolderIDs, b.R.BookmarkFolders)
+
+				bfs := make([]*models.BookmarkFolder, len(forAdd))
+				for i, id := range forAdd {
+					bfs[i] = &models.BookmarkFolder{
+						FolderID: id,
+					}
+				}
+
+				if len(forAdd) > 0 {
+					if err = b.AddBookmarkFolders(tx, true, bfs...); err != nil {
+						return err
+					}
+				}
+
+				if len(forDel) > 0 {
+					_, err := models.BookmarkFolders(
+						models.BookmarkFolderWhere.FolderID.IN(forDel),
+						models.BookmarkFolderWhere.BookmarkID.EQ(b.ID),
+					).DeleteAll(tx)
+					if err != nil {
+						return err
+					}
 				}
 			}
-			if err = b.AddBookmarkFolders(tx, true, bbfs...); err != nil {
-				return err
-			}
 		}
-		_, err = b.Update(tx, boil.Infer())
-		*resp = *makeBookmarkDTO(b)
-		return err
+
+		if _, err := b.Update(tx, boil.Infer()); err != nil {
+			return err
+		}
+
+		reloaded, err := models.Bookmarks(models.BookmarkWhere.ID.EQ(id), qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
+		if err != nil {
+			return err
+		}
+		*resp = *makeBookmarkDTO(reloaded)
+		return nil
 	})
 
 	concludeRequest(c, resp, err)
@@ -1082,7 +1112,7 @@ func (a *App) handleGetFolders(c *gin.Context) {
 	if r.BookmarkIdFilter != 0 {
 		mods = append(mods, qm.Load("BookmarkFolders", models.BookmarkFolderWhere.BookmarkID.EQ(r.BookmarkIdFilter)))
 	}
-	appendNameFilter(&mods, r.QueryFilter, "name")
+	appendQueryFilter(&mods, r.QueryFilter, "name")
 	folders, err := models.Folders(mods...).All(db)
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
@@ -1239,7 +1269,7 @@ func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	return limit, offset
 }
 
-func appendNameFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
+func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 	if r.Query == "" {
 		return
 	}
@@ -1344,4 +1374,32 @@ func makeFoldersDTO(folder *models.Folder) *Folder {
 	}
 
 	return &resp
+}
+
+func diffBFs(reqIDs []int64, bfFromDB []*models.BookmarkFolder) ([]int64, []int64) {
+	if len(bfFromDB) == 0 {
+		return reqIDs, nil
+	}
+
+	forDel := make([]int64, 0)
+	forAdd := make([]int64, 0)
+	mDB := make(map[int64]bool, len(bfFromDB))
+	for _, x := range bfFromDB {
+		mDB[x.FolderID] = false
+	}
+
+	for _, x := range reqIDs {
+		if _, ok := mDB[x]; !ok {
+			forAdd = append(forAdd, x)
+			continue
+		}
+		mDB[x] = true
+	}
+
+	for x, ok := range mDB {
+		if !ok {
+			forDel = append(forDel, x)
+		}
+	}
+	return forAdd, forDel
 }
