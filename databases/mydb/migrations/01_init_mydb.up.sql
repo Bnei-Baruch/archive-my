@@ -20,14 +20,13 @@ CREATE TABLE users
 DROP TABLE IF EXISTS playlists;
 CREATE TABLE playlists
 (
-    id              BIGSERIAL PRIMARY KEY,
-    uid             CHAR(8) UNIQUE                         NOT NULL,
-    user_id         BIGINT REFERENCES users                NOT NULL,
-    name            VARCHAR(256),
-    public          BOOLEAN                  DEFAULT FALSE NOT NULL,
-    properties      JSONB,
-    poster_unit_uid CHAR(8),
-    created_at      TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+    id         BIGSERIAL PRIMARY KEY,
+    uid        CHAR(8) UNIQUE                         NOT NULL,
+    user_id    BIGINT REFERENCES users                NOT NULL,
+    name       VARCHAR(256),
+    public     BOOLEAN                  DEFAULT FALSE NOT NULL,
+    properties JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
 
@@ -47,7 +46,7 @@ CREATE TABLE reactions
     id           BIGSERIAL PRIMARY KEY,
     user_id      BIGINT REFERENCES users NOT NULL,
     kind         VARCHAR(16)             NOT NULL,
-    subject_type VARCHAR(32)             NOT NULL,
+    subject_type VARCHAR(16)             NOT NULL,
     subject_uid  CHAR(8)                 NOT NULL,
     UNIQUE (user_id, kind, subject_type, subject_uid)
 );
@@ -142,7 +141,3 @@ INDEX IF NOT EXISTS history_user_id_idx
 CREATE
 INDEX IF NOT EXISTS history_content_unit_uid_idx
     ON history USING BTREE (user_id, content_unit_uid);
-
-CREATE
-INDEX IF NOT EXISTS history_chronicles_timestamp_idx
-    ON history USING BTREE (user_id, chronicles_timestamp);
