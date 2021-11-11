@@ -20,6 +20,3 @@ DROP TABLE IF EXISTS playlist_items;
 DROP TABLE IF EXISTS reactions;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS history;
-DROP TABLE IF EXISTS bookmark;
-DROP TABLE IF EXISTS folder;
-DROP TABLE IF EXISTS bookmark_folder;

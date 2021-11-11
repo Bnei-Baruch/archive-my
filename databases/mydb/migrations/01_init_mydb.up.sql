@@ -80,36 +80,6 @@ CREATE TABLE history
 );
 
 
-DROP TABLE IF EXISTS folders;
-CREATE TABLE folders
-(
-    id         BIGSERIAL PRIMARY KEY,
-    name       VARCHAR(256),
-    user_id    BIGINT REFERENCES users                NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
-);
-
-DROP TABLE IF EXISTS bookmarks;
-CREATE TABLE bookmarks
-(
-    id          BIGSERIAL PRIMARY KEY,
-    name        VARCHAR(256),
-    user_id     BIGINT REFERENCES users                NOT NULL,
-    source_uid  CHAR(8)                                NOT NULL,
-    source_type VARCHAR(32)                            NOT NULL,
-    data        JSONB,
-    created_at  TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
-);
-
-DROP TABLE IF EXISTS bookmark_folder;
-CREATE TABLE bookmark_folder
-(
-    bookmark_id BIGINT REFERENCES bookmarks ON DELETE CASCADE NOT NULL,
-    folder_id   BIGINT REFERENCES folders ON DELETE CASCADE   NOT NULL,
-    position    INTEGER,
-    PRIMARY KEY (folder_id, bookmark_id)
-);
-
 -------------
 -- Indexes --
 -------------
