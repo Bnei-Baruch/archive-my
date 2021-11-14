@@ -627,7 +627,7 @@ func (a *App) handleReactionCount(c *gin.Context) {
 	if c.Bind(&req) != nil {
 		return
 	}
-	boil.DebugMode = true
+
 	mods := []qm.QueryMod{
 		qm.Select(models.ReactionColumns.SubjectUID, models.ReactionColumns.Kind, "count(id)"),
 		qm.From(models.TableNames.Reactions),
