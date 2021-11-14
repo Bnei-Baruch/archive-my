@@ -150,7 +150,7 @@ type Reaction struct {
 
 type ReactionCount struct {
 	Reaction
-	Total string `json:"total"`
+	Total int `json:"total"`
 }
 
 type History struct {
