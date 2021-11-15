@@ -624,7 +624,7 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 }
 
 func (a *App) handleReactionCount(c *gin.Context) {
-	var req ReactionCountResponse
+	var req ReactionCountRequest
 	if c.Bind(&req) != nil {
 		return
 	}
@@ -653,7 +653,7 @@ func (a *App) handleReactionCount(c *gin.Context) {
 	for rows.Next() {
 		r := &ReactionCount{}
 		r.SubjectType = req.SubjectType
-		err = rows.Scan(r.SubjectUID, r.Kind, r.Total)
+		err = rows.Scan(&r.SubjectUID, &r.Kind, &r.Total)
 		resp = append(resp, r)
 	}
 
@@ -1295,7 +1295,6 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 	resp := Playlist{
 		ID:              playlist.ID,
 		UID:             playlist.UID,
-		UserID:          playlist.UserID,
 		Public:          playlist.Public,
 		CreatedAt:       playlist.CreatedAt,
 		MaxItemPosition: 0,
