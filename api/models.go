@@ -93,7 +93,7 @@ type ReactionsResponse struct {
 }
 
 type AddReactionsRequest struct {
-	Kind        string `json:"kind" binding:"required,max=16"`
+	Kind        string `json:"kind" binding:"required,max=32"`
 	SubjectType string `json:"subject_type" binding:"required,max=32"`
 	SubjectUID  string `json:"subject_uid" binding:"required,len=8"`
 }
@@ -140,7 +140,7 @@ type SubscribeRequest struct {
 type GetBookmarksRequest struct {
 	ListRequest
 	QueryFilter
-	FolderIDsFilter []int64 `json:"folder_ids" form:"folder_id" binding:"omitempty"`
+	FolderIDsFilter []int64 `form:"folder_id" binding:"omitempty"`
 }
 
 type GetBookmarksResponse struct {
@@ -152,21 +152,21 @@ type AddBookmarksRequest struct {
 	NameRequest
 	SourceUID  string                 `json:"source_uid" binding:"required,max=8"`
 	SourceType string                 `json:"source_type" binding:"required"`
-	FolderIDs  []int64                `json:"folder_ids" form:"folder_ids" binding:"omitempty"`
-	Data       map[string]interface{} `json:"data" form:"data" binding:"omitempty"`
+	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
+	Data       map[string]interface{} `json:"data" binding:"omitempty"`
 }
 
 type UpdateBookmarkRequest struct {
 	NameRequest
-	FolderIDs []int64                `json:"folder_ids" form:"folder_ids" binding:"omitempty"`
-	Data      map[string]interface{} `json:"data" form:"data" binding:"omitempty"`
+	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
+	Data      map[string]interface{} `json:"data" binding:"omitempty"`
 }
 
 //Folder
 type GetFoldersRequest struct {
 	ListRequest
 	QueryFilter
-	BookmarkIdFilter int64 `json:"bookmark_id" form:"bookmark_id" binding:"omitempty"`
+	BookmarkIdFilter int64 `form:"bookmark_id" binding:"omitempty"`
 }
 
 type GetFoldersResponse struct {
