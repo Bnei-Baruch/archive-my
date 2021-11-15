@@ -502,7 +502,6 @@ func (s *ApiTestSuite) assertPlaylist(expected *models.Playlist, actual *Playlis
 
 func (s *ApiTestSuite) assertPlaylistInfo(expected *models.Playlist, actual *Playlist, idx int) {
 	s.Equal(expected.ID, actual.ID, "ID [%d]", idx)
-	s.Equal(expected.UserID, actual.UserID, "UserID [%d]", idx)
 	s.Equal(expected.UID, actual.UID, "UID [%d]", idx)
 	s.Equal(expected.Name.String, actual.Name, "Name [%d]", idx)
 	s.Equal(expected.Public, actual.Public, "Public [%d]", idx)

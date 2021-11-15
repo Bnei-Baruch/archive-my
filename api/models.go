@@ -27,7 +27,7 @@ type UIDsFilter struct {
 
 type GetPlaylistsRequest struct {
 	ListRequest
-	ExistUnit string `json:"exist_cu" form:"exist_cu" binding:"omitempty"`
+	ExistUnit string `form:"exist_cu" binding:"omitempty"`
 }
 
 type PlaylistsResponse struct {
@@ -90,9 +90,9 @@ type RemoveReactionsRequest struct {
 	AddReactionsRequest
 }
 
-type ReactionCountResponse struct {
+type ReactionCountRequest struct {
 	UIDsFilter
-	SubjectType string `json:"type" form:"type" binding:"omitempty"`
+	SubjectType string `form:"type" binding:"omitempty"`
 }
 
 type GetHistoryRequest struct {
@@ -106,7 +106,9 @@ type HistoryResponse struct {
 
 type GetSubscriptionsRequest struct {
 	ListRequest
-	SubscribeRequest
+	CollectionUID  string `form:"collection_uid" binding:"omitempty"`
+	ContentType    string `form:"content_type" binding:"omitempty"`
+	ContentUnitUID string `form:"content_unit_uid" binding:"omitempty"`
 }
 
 type SubscriptionsResponse struct {
@@ -115,9 +117,9 @@ type SubscriptionsResponse struct {
 }
 
 type SubscribeRequest struct {
-	CollectionUID  string `json:"collection_uid" form:"collection_uid" binding:"omitempty"`
-	ContentType    string `json:"content_type" form:"content_type" binding:"omitempty"`
-	ContentUnitUID string `json:"content_unit_uid" form:"content_unit_uid" binding:"omitempty"`
+	CollectionUID  string `json:"collection_uid" binding:"omitempty"`
+	ContentType    string `json:"content_type" binding:"omitempty"`
+	ContentUnitUID string `json:"content_unit_uid" binding:"omitempty"`
 }
 
 // DTOs
@@ -125,7 +127,6 @@ type SubscribeRequest struct {
 type Playlist struct {
 	ID              int64                  `json:"id"`
 	UID             string                 `json:"uid"`
-	UserID          int64                  `json:"user_id"`
 	Name            string                 `json:"name,omitempty"`
 	Public          bool                   `json:"public"`
 	Properties      map[string]interface{} `json:"properties,omitempty"`
