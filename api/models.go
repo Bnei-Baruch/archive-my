@@ -93,7 +93,7 @@ type ReactionsResponse struct {
 }
 
 type AddReactionsRequest struct {
-	Kind        string `json:"kind" binding:"required,max=32"`
+	Kind        string `json:"kind" binding:"required,max=16"`
 	SubjectType string `json:"subject_type" binding:"required,max=32"`
 	SubjectUID  string `json:"subject_uid" binding:"required,len=8"`
 }
