@@ -1273,7 +1273,7 @@ func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 	if r.Query == "" {
 		return
 	}
-	q := fmt.Sprintf("%s LIKE '%%%s%%'", column, r.Query)
+	q := fmt.Sprintf("%s ILIKE '%%%s%%'", column, r.Query)
 	*mods = append(*mods, qm.Where(q))
 }
 
