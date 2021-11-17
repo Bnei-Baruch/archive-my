@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
@@ -215,6 +216,9 @@ func (s *ApiTestSuite) TestBookmark_updateBookmarkFolders() {
 	req, _ = http.NewRequest(http.MethodPut, fmt.Sprintf("/rest/bookmarks/%d", bookmark.ID), bytes.NewReader(payload))
 	s.apiAuthUser(req, user)
 	s.request200json(req, &resp)
+	sort.Slice(resp.FolderIds, func(i, j int) bool {
+		return resp.FolderIds[i] < resp.FolderIds[j]
+	})
 	s.EqualValues(forUpdate, resp.FolderIds)
 
 }
