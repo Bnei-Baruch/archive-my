@@ -141,9 +141,10 @@ func (c *Chronicles) lastChroniclesId() (string, error) {
 }
 
 func (c *Chronicles) refresh() error {
+	defer c.ticker.Reset(c.interval)
 	n, err := c.scanEvents()
+
 	if err != nil {
-		c.ticker.Reset(c.interval)
 		return err
 	}
 
@@ -152,7 +153,6 @@ func (c *Chronicles) refresh() error {
 	} else {
 		c.interval = utils.MinDuration(c.interval*2, MAX_INTERVAL)
 	}
-	c.ticker.Reset(c.interval)
 
 	return nil
 }
