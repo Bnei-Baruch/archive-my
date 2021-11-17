@@ -38,11 +38,11 @@ CREATE TABLE bookmark_folder
 
 CREATE
 INDEX IF NOT EXISTS folders_user_id_idx
-    ON folders USING BTREE (user_id, folder_id);
+    ON folders USING BTREE (user_id);
 
 CREATE
-INDEX IF NOT EXISTS bookmarks_user_id_idx
-    ON bookmarks USING BTREE (user_id, bookmark_id);
+INDEX IF NOT EXISTS bookmarks_user_id_source_idx
+    ON bookmarks USING BTREE (user_id, source_uid, source_type);
 
 CREATE
 INDEX IF NOT EXISTS bookmark_id_folder_id_idx

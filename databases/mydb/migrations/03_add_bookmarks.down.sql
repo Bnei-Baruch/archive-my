@@ -2,7 +2,7 @@ DROP
 INDEX IF EXISTS bookmark_id_folder_id_idx;
 
 DROP
-INDEX IF EXISTS bookmarks_user_id_idx;
+INDEX IF EXISTS bookmarks_user_id_source_idx;
 
 DROP
 INDEX IF EXISTS folders_user_id_idx;
