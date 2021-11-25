@@ -27,6 +27,7 @@ type UIDsFilter struct {
 
 type GetPlaylistsRequest struct {
 	ListRequest
+	ExistUnit string `form:"exist_cu" binding:"omitempty"`
 }
 
 type PlaylistsResponse struct {
@@ -71,6 +72,7 @@ type RemovePlaylistItemsRequest struct {
 type GetReactionsRequest struct {
 	ListRequest
 	UIDsFilter
+	SubjectType string `json:"subject_type" form:"subject_type" binding:"omitempty"`
 }
 
 type ReactionsResponse struct {
@@ -80,12 +82,17 @@ type ReactionsResponse struct {
 
 type AddReactionsRequest struct {
 	Kind        string `json:"kind" binding:"required,max=16"`
-	SubjectType string `json:"subject_type" binding:"required,max=16"`
+	SubjectType string `json:"subject_type" binding:"required,max=32"`
 	SubjectUID  string `json:"subject_uid" binding:"required,len=8"`
 }
 
 type RemoveReactionsRequest struct {
 	AddReactionsRequest
+}
+
+type ReactionCountRequest struct {
+	UIDsFilter
+	SubjectType string `form:"type" binding:"omitempty"`
 }
 
 type GetHistoryRequest struct {
@@ -99,6 +106,9 @@ type HistoryResponse struct {
 
 type GetSubscriptionsRequest struct {
 	ListRequest
+	CollectionUID  string `form:"collection_uid" binding:"omitempty"`
+	ContentType    string `form:"content_type" binding:"omitempty"`
+	ContentUnitUID string `form:"content_unit_uid" binding:"omitempty"`
 }
 
 type SubscriptionsResponse struct {
@@ -115,15 +125,15 @@ type SubscribeRequest struct {
 // DTOs
 
 type Playlist struct {
-	ID         int64                  `json:"id"`
-	UID        string                 `json:"uid"`
-	UserID     int64                  `json:"user_id"`
-	Name       string                 `json:"name,omitempty"`
-	Public     bool                   `json:"public"`
-	Properties map[string]interface{} `json:"properties,omitempty"`
-	CreatedAt  time.Time              `json:"created_at"`
-	TotalItems int                    `json:"total_items"`
-	Items      []*PlaylistItem        `json:"items"`
+	ID            int64                  `json:"id"`
+	UID           string                 `json:"uid"`
+	Name          string                 `json:"name,omitempty"`
+	Public        bool                   `json:"public"`
+	Properties    map[string]interface{} `json:"properties,omitempty"`
+	CreatedAt     time.Time              `json:"created_at"`
+	TotalItems    int                    `json:"total_items"`
+	Items         []*PlaylistItem        `json:"items"`
+	PosterUnitUID string                 `json:"poster_unit_uid,omitempty"`
 }
 
 type PlaylistItem struct {
@@ -136,6 +146,11 @@ type Reaction struct {
 	Kind        string `json:"kind"`
 	SubjectType string `json:"subject_type"`
 	SubjectUID  string `json:"subject_uid"`
+}
+
+type ReactionCount struct {
+	Reaction
+	Total int `json:"total"`
 }
 
 type History struct {

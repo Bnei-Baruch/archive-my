@@ -29,7 +29,7 @@ const (
 	MaxPlaylistSize = 1000
 )
 
-//Playlists handlers
+//Playlist handlers
 func (a *App) handleGetPlaylists(c *gin.Context) {
 	var r GetPlaylistsRequest
 	if c.Bind(&r) != nil {
@@ -61,7 +61,10 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		concludeRequest(c, NewPlaylistsResponse(0, 0), nil)
 		return
 	}
-
+	//add playlist item to response if this item of specific unit (need for mark it on client)
+	if r.ExistUnit != "" {
+		mods = append(mods, qm.Load("PlaylistItems", models.PlaylistItemWhere.ContentUnitUID.EQ(r.ExistUnit)))
+	}
 	items, err := models.Playlists(mods...).All(db)
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
@@ -328,10 +331,29 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 			return errs.NewNotFoundError(errors.New("owner mismatch"))
 		}
 
+		var maxPosition null.Int
+		err = models.NewQuery(
+			qm.Select(fmt.Sprintf("MAX(%s)", models.PlaylistItemColumns.Position)),
+			qm.From(models.TableNames.PlaylistItems),
+			models.PlaylistItemWhere.PlaylistID.EQ(id),
+		).QueryRow(tx).Scan(&maxPosition)
+		if err != nil && err != sql.ErrNoRows {
+			return pkgerr.Wrap(err, "find max position of playlist items from db")
+		}
+
 		items := make([]*models.PlaylistItem, len(r.Items))
+		var maxPos = 1
+		if ok := maxPosition.Valid; ok {
+			maxPos = maxPosition.Int
+		}
 		for i, item := range r.Items {
+			p := item.Position
+			if item.Position < 0 {
+				maxPos++
+				p = maxPos
+			}
 			items[i] = &models.PlaylistItem{
-				Position:       item.Position,
+				Position:       p,
 				ContentUnitUID: item.ContentUnitUID,
 			}
 		}
@@ -347,6 +369,13 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 
 		if err := playlist.AddPlaylistItems(tx, true, items...); err != nil {
 			return pkgerr.Wrap(err, "insert items to db")
+		}
+
+		if !playlist.PosterUnitUID.Valid {
+			playlist.PosterUnitUID = null.StringFrom(items[0].ContentUnitUID)
+			if _, err := playlist.Update(tx, boil.Whitelist(models.PlaylistColumns.PosterUnitUID)); err != nil {
+				return pkgerr.Wrap(err, "insert poster uid to db")
+			}
 		}
 
 		if err := playlist.L.LoadPlaylistItems(tx, true, playlist, nil); err != nil {
@@ -483,7 +512,7 @@ func (a *App) handleRemovePlaylistItems(c *gin.Context) {
 	concludeRequest(c, resp, err)
 }
 
-// Reactions handlers
+// Reaction handlers
 func (a *App) handleGetReactions(c *gin.Context) {
 	var r GetReactionsRequest
 	if c.Bind(&r) != nil {
@@ -496,8 +525,18 @@ func (a *App) handleGetReactions(c *gin.Context) {
 		return
 	}
 
-	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
-	appendCUUIDsFilter(&mods, r.UIDsFilter)
+	mods := []qm.QueryMod{models.ReactionWhere.UserID.EQ(user.ID)}
+	if len(r.UIDs) > 0 {
+		if r.SubjectType == "" {
+			errs.NewBadRequestError(errors.New("missing field subject_type")).Abort(c)
+			return
+		}
+		mods = append(mods, models.ReactionWhere.SubjectUID.IN(r.UIDs))
+	}
+
+	if r.SubjectType != "" {
+		mods = append(mods, models.ReactionWhere.SubjectType.EQ(r.SubjectType))
+	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	total, err := models.Reactions(mods...).Count(db)
@@ -505,7 +544,9 @@ func (a *App) handleGetReactions(c *gin.Context) {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
 	}
-
+	if r.OrderBy == "" {
+		r.OrderBy = fmt.Sprintf("%s DESC", models.ReactionColumns.ID)
+	}
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
 		concludeRequest(c, new(ReactionsResponse), nil)
@@ -594,25 +635,46 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-func (a *App) handleLikeCount(c *gin.Context) {
-	// TODO: count per kind
-	var req UIDsFilter
+func (a *App) handleReactionCount(c *gin.Context) {
+	var req ReactionCountRequest
 	if c.Bind(&req) != nil {
 		return
 	}
 
-	var mods []qm.QueryMod
-	if len(req.UIDs) > 0 {
-		mods = append(mods, qm.WhereIn("content_unit_uid in ?", utils.ConvertArgsString(req.UIDs)...))
+	mods := []qm.QueryMod{
+		qm.Select(models.ReactionColumns.SubjectUID, models.ReactionColumns.Kind, "count(id)"),
+		qm.From(models.TableNames.Reactions),
+		models.ReactionWhere.SubjectType.EQ(req.SubjectType),
+		qm.GroupBy(models.ReactionColumns.SubjectUID),
+		qm.GroupBy(models.ReactionColumns.Kind),
 	}
 
-	count, err := models.Reactions(mods...).Count(a.DB)
+	db := c.MustGet("MY_DB").(*sql.DB)
+	if len(req.UIDs) > 0 {
+		mods = append(mods, models.ReactionWhere.SubjectUID.IN(req.UIDs))
+	}
+
+	rows, err := models.NewQuery(mods...).Query(db)
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
 	}
+	defer rows.Close()
 
-	concludeRequest(c, count, nil)
+	resp := make([]*ReactionCount, 0)
+	for rows.Next() {
+		r := &ReactionCount{}
+		r.SubjectType = req.SubjectType
+		err = rows.Scan(&r.SubjectUID, &r.Kind, &r.Total)
+		resp = append(resp, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	concludeRequest(c, resp, nil)
 }
 
 //History handlers
@@ -635,6 +697,9 @@ func (a *App) handleGetHistory(c *gin.Context) {
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
+	}
+	if r.OrderBy == "" {
+		r.OrderBy = fmt.Sprintf("%s DESC", models.HistoryColumns.ChroniclesTimestamp)
 	}
 
 	_, offset := appendListMods(&mods, r.ListRequest)
@@ -689,7 +754,7 @@ func (a *App) handleDeleteHistory(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-//Subscriptions handlers
+//Subscription handlers
 
 func (a *App) handleGetSubscriptions(c *gin.Context) {
 	var r GetSubscriptionsRequest
@@ -703,7 +768,13 @@ func (a *App) handleGetSubscriptions(c *gin.Context) {
 		return
 	}
 
-	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
+	mods := []qm.QueryMod{models.SubscriptionWhere.UserID.EQ(user.ID)}
+	if r.ContentType != "" {
+		mods = append(mods, models.SubscriptionWhere.ContentType.EQ(null.StringFrom(r.ContentType)))
+	}
+	if r.CollectionUID != "" {
+		mods = append(mods, models.SubscriptionWhere.CollectionUID.EQ(null.StringFrom(r.CollectionUID)))
+	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	total, err := models.Subscriptions(mods...).Count(db)
@@ -751,7 +822,7 @@ func (a *App) handleSubscribe(c *gin.Context) {
 		return
 	}
 
-	if r.CollectionUID != "" && r.ContentType != "" {
+	if r.CollectionUID == "" && r.ContentType == "" {
 		errs.NewBadRequestError(errors.New("collection_uid and content_type are mutually exclusive")).Abort(c)
 		return
 	}
@@ -804,7 +875,7 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		_, err := models.Subscriptions(models.HistoryWhere.UserID.EQ(user.ID), models.SubscriptionWhere.ID.EQ(id)).DeleteAll(tx)
+		_, err := models.Subscriptions(models.SubscriptionWhere.UserID.EQ(user.ID), models.SubscriptionWhere.ID.EQ(id)).DeleteAll(tx)
 		return err
 	})
 
@@ -839,12 +910,6 @@ func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	return limit, offset
 }
 
-func appendCUUIDsFilter(mods *[]qm.QueryMod, f UIDsFilter) {
-	if len(f.UIDs) > 0 {
-		*mods = append(*mods, qm.WhereIn("content_unit_uid in ?", utils.ConvertArgsString(f.UIDs)...))
-	}
-}
-
 func concludeRequest(c *gin.Context, resp interface{}, err error) {
 	if err != nil {
 		var hErr *errs.HttpError
@@ -863,7 +928,6 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 	resp := Playlist{
 		ID:        playlist.ID,
 		UID:       playlist.UID,
-		UserID:    playlist.UserID,
 		Public:    playlist.Public,
 		CreatedAt: playlist.CreatedAt,
 	}
@@ -874,12 +938,16 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 		utils.Must(playlist.Properties.Unmarshal(&resp.Properties))
 	}
 
+	if playlist.PosterUnitUID.Valid {
+		resp.PosterUnitUID = playlist.PosterUnitUID.String
+	}
+
 	if playlist.R != nil && len(playlist.R.PlaylistItems) > 0 {
 		resp.TotalItems = len(playlist.R.PlaylistItems)
 
 		resp.Items = make([]*PlaylistItem, resp.TotalItems)
 		sort.SliceStable(playlist.R.PlaylistItems, func(i int, j int) bool {
-			return playlist.R.PlaylistItems[i].Position < playlist.R.PlaylistItems[j].Position
+			return playlist.R.PlaylistItems[i].Position > playlist.R.PlaylistItems[j].Position
 		})
 
 		for i, item := range playlist.R.PlaylistItems {

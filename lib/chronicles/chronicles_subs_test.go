@@ -16,12 +16,15 @@ import (
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
+const (
+	CT_CLIPS = "CLIPS"
+	CT_CLIP  = "CLIP"
+)
+
 func (s *ChroniclesTestSuite) TestChronicles_byCO() {
 	user := s.CreateUser()
 	newUpdate := time.Now().UTC().Format(time.RFC3339)
-	coUID := s.CreateMDBCollection(s.MDB.DB, mdb.CT_CLIPS)
-	cuUID := s.CreateMDBContentUnit(s.MDB.DB, mdb.CT_CLIP)
-	s.AssociateCollectionAndUnit(s.MDB.DB, coUID, cuUID)
+	cuUID, coUID := s.CreateMDBContentUnit(s.MDB.DB, CT_CLIP)
 
 	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// TODO: assert request
@@ -54,11 +57,7 @@ func (s *ChroniclesTestSuite) TestChronicles_byType() {
 	user := s.CreateUser()
 	newUpdate := time.Now().UTC().Format(time.RFC3339)
 
-	// FIXME: next 3 line should be deleted in favour of one commented below them
-	coUID := s.CreateMDBCollection(s.MDB.DB, mdb.CT_CLIPS)
-	cuUID := s.CreateMDBContentUnit(s.MDB.DB, mdb.CT_CLIP)
-	s.AssociateCollectionAndUnit(s.MDB.DB, coUID, cuUID)
-	//cuUID := s.CreateMDBContentUnit(s.MDB.DB, common.CT_CLIP)
+	cuUID, _ := s.CreateMDBContentUnit(s.MDB.DB, CT_CLIP)
 
 	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// TODO: assert request
@@ -71,7 +70,7 @@ func (s *ChroniclesTestSuite) TestChronicles_byType() {
 
 	subscription := models.Subscription{
 		UserID:         user.ID,
-		ContentType:    null.StringFrom(mdb.CT_CLIPS),
+		ContentType:    null.StringFrom(CT_CLIPS),
 		ContentUnitUID: null.StringFrom(cuUID),
 	}
 	s.Require().NoError(subscription.Insert(s.MyDB.DB, boil.Infer()))
@@ -96,13 +95,16 @@ func (s *ChroniclesTestSuite) CreateMDBCollection(db *sql.DB, contentType string
 	return uid
 }
 
-func (s *ChroniclesTestSuite) CreateMDBContentUnit(db *sql.DB, contentType string) string {
+func (s *ChroniclesTestSuite) CreateMDBContentUnit(db *sql.DB, contentType string) (string, string) {
 	uid := utils.GenerateUID(8)
 	typeID := mdb.ContentTypesByName[contentType]
 	q := fmt.Sprintf("INSERT INTO content_units (uid, type_id, published) VALUES ('%s', %d, %t)", uid, typeID, true)
 	_, err := db.Exec(q)
 	s.Require().NoError(err)
-	return uid
+
+	coUID := s.CreateMDBCollection(s.MDB.DB, CT_CLIPS)
+	s.AssociateCollectionAndUnit(s.MDB.DB, coUID, uid)
+	return uid, coUID
 }
 
 func (s *ChroniclesTestSuite) AssociateCollectionAndUnit(db *sql.DB, coUID, cuUID string) {

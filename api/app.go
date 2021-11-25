@@ -11,13 +11,15 @@ import (
 
 	"github.com/Bnei-Baruch/archive-my/common"
 	"github.com/Bnei-Baruch/archive-my/instrumentation"
+	"github.com/Bnei-Baruch/archive-my/lib/chronicles"
 	"github.com/Bnei-Baruch/archive-my/middleware"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 )
 
 type App struct {
-	Router *gin.Engine
-	DB     *sql.DB
+	Router     *gin.Engine
+	DB         *sql.DB
+	chronicles *chronicles.Chronicles
 }
 
 func (a *App) Initialize() {
@@ -31,10 +33,14 @@ func (a *App) Initialize() {
 	db, err := sql.Open("postgres", common.Config.MyDBUrl)
 	utils.Must(err)
 
-	a.InitializeWithDeps(db, verifier)
+	log.Info().Msg("Setting up connection to MDB")
+	mdb, err := sql.Open("postgres", common.Config.MDBUrl)
+	utils.Must(err)
+
+	a.InitializeWithDeps(db, mdb, verifier)
 }
 
-func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenVerifier) {
+func (a *App) InitializeWithDeps(db, mdb *sql.DB, tokenVerifier middleware.OIDCTokenVerifier) {
 	a.DB = db
 
 	gin.SetMode(common.Config.GinMode)
@@ -62,13 +68,16 @@ func (a *App) InitializeWithDeps(db *sql.DB, tokenVerifier middleware.OIDCTokenV
 		middleware.DataStoresMiddleware(a.DB))
 
 	a.initRoutes(tokenVerifier)
-	//a.initChronicles()
+
+	a.chronicles = new(chronicles.Chronicles)
+	a.chronicles.InitWithDeps(db, mdb)
 	instrumentation.Stats.Init()
 }
 
 func (a *App) Run() {
 	defer a.Shutdown()
 
+	a.chronicles.Run()
 	addr := common.Config.ListenAddress
 	log.Info().Msgf("app run %s", addr)
 	if err := a.Router.Run(addr); err != nil {
@@ -77,6 +86,8 @@ func (a *App) Run() {
 }
 
 func (a *App) Shutdown() {
+	a.chronicles.Shutdown()
+
 	if err := a.DB.Close(); err != nil {
 		log.Error().Err(err).Msg("DB.close")
 	}
@@ -86,11 +97,12 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	a.Router.GET("/health_check", a.HealthCheckHandler)
 	a.Router.GET("/metrics", a.MakePrometheusHandler())
 
-	a.Router.GET("/like_count", a.handleLikeCount)
+	a.Router.GET("/reaction_count", a.handleReactionCount)
 	// TODO: public endpoint for public playlists (get by UID) string all internal IDs
 
 	rest := a.Router.Group("/rest")
-	rest.Use(middleware.AuthenticationMiddleware(verifier))
+	auth := middleware.Auth{}
+	rest.Use(auth.AuthenticationMiddleware(verifier))
 
 	rest.GET("/playlists", a.handleGetPlaylists)
 	rest.POST("/playlists", a.handleCreatePlaylist)

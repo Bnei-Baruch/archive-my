@@ -50,6 +50,25 @@ func (s *ApiTestSuite) TestPlaylist_getPlaylists() {
 	s.Empty(resp.Items, "items empty")
 }
 
+func (s *ApiTestSuite) TestPlaylist_getPlaylists_with_exist() {
+	user := s.CreateUser()
+
+	playlist := s.CreatePlaylist(user, "playlist with exist", nil)
+	_ = s.CreatePlaylist(user, "playlist with no exist", nil)
+	cuUID := playlist.R.PlaylistItems[0].ContentUnitUID
+
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/rest/playlists?exist_cu=%s&order_by=id", cuUID), nil)
+	s.apiAuthUser(req, user)
+
+	var resp PlaylistsResponse
+	s.request200json(req, &resp)
+
+	s.EqualValues(2, resp.Total, "total")
+	s.Equal(playlist.ID, resp.Items[0].ID)
+	s.EqualValues(1, len(resp.Items[0].Items), "number items")
+	s.EqualValues(cuUID, resp.Items[0].Items[0].ContentUnitUID, "wright unit")
+}
+
 func (s *ApiTestSuite) TestPlaylist_getPlaylists_pagination() {
 	user := s.CreateUser()
 	playlists := make([]*models.Playlist, 10)
@@ -281,8 +300,9 @@ func (s *ApiTestSuite) TestPlaylist_addItems() {
 	user := s.CreateUser()
 	playlist := s.CreatePlaylist(user, "playlist", nil)
 
+	posterUnitUID := "12345678"
 	payload, err := json.Marshal(AddPlaylistItemsRequest{Items: []PlaylistItemAddInfo{
-		{Position: len(playlist.R.PlaylistItems) + 1, ContentUnitUID: "12345678"},
+		{Position: len(playlist.R.PlaylistItems) + 1, ContentUnitUID: posterUnitUID},
 		{Position: len(playlist.R.PlaylistItems) + 2, ContentUnitUID: "87654321"},
 	}})
 	s.Require().NoError(err)
@@ -293,6 +313,7 @@ func (s *ApiTestSuite) TestPlaylist_addItems() {
 
 	s.Require().NoError(playlist.L.LoadPlaylistItems(s.MyDB.DB, true, playlist, qm.OrderBy("position")))
 	s.assertPlaylist(playlist, &resp, 0)
+	s.Equal(posterUnitUID, resp.PosterUnitUID, "PosterUnitUID")
 }
 
 func (s *ApiTestSuite) TestPlaylist_updateItems_notFound() {
@@ -481,7 +502,6 @@ func (s *ApiTestSuite) assertPlaylist(expected *models.Playlist, actual *Playlis
 
 func (s *ApiTestSuite) assertPlaylistInfo(expected *models.Playlist, actual *Playlist, idx int) {
 	s.Equal(expected.ID, actual.ID, "ID [%d]", idx)
-	s.Equal(expected.UserID, actual.UserID, "UserID [%d]", idx)
 	s.Equal(expected.UID, actual.UID, "UID [%d]", idx)
 	s.Equal(expected.Name.String, actual.Name, "Name [%d]", idx)
 	s.Equal(expected.Public, actual.Public, "Public [%d]", idx)
@@ -499,7 +519,8 @@ func (s *ApiTestSuite) assertPlaylistItems(expected *models.Playlist, actual *Pl
 		if len(actual.Items) > 0 {
 			s.Len(actual.Items, len(expected.R.PlaylistItems), "playlist.PlaylistItems len [%d]", idx)
 			for i, u := range expected.R.PlaylistItems {
-				s.assertPlaylistItem(u, actual.Items[i], i)
+				j := len(expected.R.PlaylistItems) - i - 1
+				s.assertPlaylistItem(u, actual.Items[j], i)
 			}
 		}
 	}

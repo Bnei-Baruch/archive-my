@@ -23,52 +23,57 @@ import (
 
 // Playlist is an object representing the database table.
 type Playlist struct {
-	ID         int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	UID        string      `boil:"uid" json:"uid" toml:"uid" yaml:"uid"`
-	UserID     int64       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
-	Name       null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
-	Public     bool        `boil:"public" json:"public" toml:"public" yaml:"public"`
-	Properties null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
-	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID            int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	UID           string      `boil:"uid" json:"uid" toml:"uid" yaml:"uid"`
+	UserID        int64       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
+	Name          null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
+	Public        bool        `boil:"public" json:"public" toml:"public" yaml:"public"`
+	Properties    null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
+	PosterUnitUID null.String `boil:"poster_unit_uid" json:"poster_unit_uid,omitempty" toml:"poster_unit_uid" yaml:"poster_unit_uid,omitempty"`
+	CreatedAt     time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *playlistR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L playlistL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PlaylistColumns = struct {
-	ID         string
-	UID        string
-	UserID     string
-	Name       string
-	Public     string
-	Properties string
-	CreatedAt  string
+	ID            string
+	UID           string
+	UserID        string
+	Name          string
+	Public        string
+	Properties    string
+	PosterUnitUID string
+	CreatedAt     string
 }{
-	ID:         "id",
-	UID:        "uid",
-	UserID:     "user_id",
-	Name:       "name",
-	Public:     "public",
-	Properties: "properties",
-	CreatedAt:  "created_at",
+	ID:            "id",
+	UID:           "uid",
+	UserID:        "user_id",
+	Name:          "name",
+	Public:        "public",
+	Properties:    "properties",
+	PosterUnitUID: "poster_unit_uid",
+	CreatedAt:     "created_at",
 }
 
 var PlaylistTableColumns = struct {
-	ID         string
-	UID        string
-	UserID     string
-	Name       string
-	Public     string
-	Properties string
-	CreatedAt  string
+	ID            string
+	UID           string
+	UserID        string
+	Name          string
+	Public        string
+	Properties    string
+	PosterUnitUID string
+	CreatedAt     string
 }{
-	ID:         "playlists.id",
-	UID:        "playlists.uid",
-	UserID:     "playlists.user_id",
-	Name:       "playlists.name",
-	Public:     "playlists.public",
-	Properties: "playlists.properties",
-	CreatedAt:  "playlists.created_at",
+	ID:            "playlists.id",
+	UID:           "playlists.uid",
+	UserID:        "playlists.user_id",
+	Name:          "playlists.name",
+	Public:        "playlists.public",
+	Properties:    "playlists.properties",
+	PosterUnitUID: "playlists.poster_unit_uid",
+	CreatedAt:     "playlists.created_at",
 }
 
 // Generated where
@@ -83,21 +88,23 @@ func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field
 func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 var PlaylistWhere = struct {
-	ID         whereHelperint64
-	UID        whereHelperstring
-	UserID     whereHelperint64
-	Name       whereHelpernull_String
-	Public     whereHelperbool
-	Properties whereHelpernull_JSON
-	CreatedAt  whereHelpertime_Time
+	ID            whereHelperint64
+	UID           whereHelperstring
+	UserID        whereHelperint64
+	Name          whereHelpernull_String
+	Public        whereHelperbool
+	Properties    whereHelpernull_JSON
+	PosterUnitUID whereHelpernull_String
+	CreatedAt     whereHelpertime_Time
 }{
-	ID:         whereHelperint64{field: "\"playlists\".\"id\""},
-	UID:        whereHelperstring{field: "\"playlists\".\"uid\""},
-	UserID:     whereHelperint64{field: "\"playlists\".\"user_id\""},
-	Name:       whereHelpernull_String{field: "\"playlists\".\"name\""},
-	Public:     whereHelperbool{field: "\"playlists\".\"public\""},
-	Properties: whereHelpernull_JSON{field: "\"playlists\".\"properties\""},
-	CreatedAt:  whereHelpertime_Time{field: "\"playlists\".\"created_at\""},
+	ID:            whereHelperint64{field: "\"playlists\".\"id\""},
+	UID:           whereHelperstring{field: "\"playlists\".\"uid\""},
+	UserID:        whereHelperint64{field: "\"playlists\".\"user_id\""},
+	Name:          whereHelpernull_String{field: "\"playlists\".\"name\""},
+	Public:        whereHelperbool{field: "\"playlists\".\"public\""},
+	Properties:    whereHelpernull_JSON{field: "\"playlists\".\"properties\""},
+	PosterUnitUID: whereHelpernull_String{field: "\"playlists\".\"poster_unit_uid\""},
+	CreatedAt:     whereHelpertime_Time{field: "\"playlists\".\"created_at\""},
 }
 
 // PlaylistRels is where relationship names are stored.
@@ -124,8 +131,8 @@ func (*playlistR) NewStruct() *playlistR {
 type playlistL struct{}
 
 var (
-	playlistAllColumns            = []string{"id", "uid", "user_id", "name", "public", "properties", "created_at"}
-	playlistColumnsWithoutDefault = []string{"uid", "user_id", "name", "properties"}
+	playlistAllColumns            = []string{"id", "uid", "user_id", "name", "public", "properties", "poster_unit_uid", "created_at"}
+	playlistColumnsWithoutDefault = []string{"uid", "user_id", "name", "properties", "poster_unit_uid"}
 	playlistColumnsWithDefault    = []string{"id", "public", "created_at"}
 	playlistPrimaryKeyColumns     = []string{"id"}
 )
