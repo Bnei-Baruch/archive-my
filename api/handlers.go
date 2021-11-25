@@ -61,7 +61,7 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		concludeRequest(c, NewPlaylistsResponse(0, 0), nil)
 		return
 	}
-
+	//add playlist item to response if this item of specific unit (need for mark it on client)
 	if r.ExistUnit != "" {
 		mods = append(mods, qm.Load("PlaylistItems", models.PlaylistItemWhere.ContentUnitUID.EQ(r.ExistUnit)))
 	}
@@ -82,11 +82,7 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 
 	// total_items histogram
 	rows, err := models.NewQuery(
-		qm.Select(
-			models.PlaylistItemColumns.PlaylistID,
-			"count(*)",
-			fmt.Sprintf("MAX(%s)", models.PlaylistItemColumns.Position),
-		),
+		qm.Select(models.PlaylistItemColumns.PlaylistID, "count(*)"),
 		qm.From(models.TableNames.PlaylistItems),
 		models.PlaylistItemWhere.PlaylistID.IN(playlistIDs),
 		qm.GroupBy(models.PlaylistItemColumns.PlaylistID),
@@ -100,13 +96,11 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 	for rows.Next() {
 		var playlistID int64
 		var totalItems int
-		var maxPosition int
-		if err := rows.Scan(&playlistID, &totalItems, &maxPosition); err != nil {
+		if err := rows.Scan(&playlistID, &totalItems); err != nil {
 			errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 			return
 		}
 		playlistDTOByID[playlistID].TotalItems = totalItems
-		playlistDTOByID[playlistID].MaxItemPosition = maxPosition
 	}
 
 	if err := rows.Err(); err != nil {
@@ -338,10 +332,29 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 			return errs.NewNotFoundError(errors.New("owner mismatch"))
 		}
 
+		var maxPosition null.Int
+		err = models.NewQuery(
+			qm.Select(fmt.Sprintf("MAX(%s)", models.PlaylistItemColumns.Position)),
+			qm.From(models.TableNames.PlaylistItems),
+			models.PlaylistItemWhere.PlaylistID.EQ(id),
+		).QueryRow(tx).Scan(&maxPosition)
+		if err != nil && err != sql.ErrNoRows {
+			return pkgerr.Wrap(err, "find max position of playlist items from db")
+		}
+
 		items := make([]*models.PlaylistItem, len(r.Items))
+		var maxPos = 1
+		if ok := maxPosition.Valid; ok {
+			maxPos = maxPosition.Int
+		}
 		for i, item := range r.Items {
+			p := item.Position
+			if item.Position < 0 {
+				maxPos++
+				p = maxPos
+			}
 			items[i] = &models.PlaylistItem{
-				Position:       item.Position,
+				Position:       p,
 				ContentUnitUID: item.ContentUnitUID,
 			}
 		}
@@ -869,6 +882,7 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
+
 //Bookmark handlers
 func (a *App) handleGetBookmarks(c *gin.Context) {
 	var r GetBookmarksRequest
@@ -1293,11 +1307,10 @@ func concludeRequest(c *gin.Context, resp interface{}, err error) {
 
 func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 	resp := Playlist{
-		ID:              playlist.ID,
-		UID:             playlist.UID,
-		Public:          playlist.Public,
-		CreatedAt:       playlist.CreatedAt,
-		MaxItemPosition: 0,
+		ID:        playlist.ID,
+		UID:       playlist.UID,
+		Public:    playlist.Public,
+		CreatedAt: playlist.CreatedAt,
 	}
 	if playlist.Name.Valid {
 		resp.Name = playlist.Name.String
@@ -1317,7 +1330,6 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 		sort.SliceStable(playlist.R.PlaylistItems, func(i int, j int) bool {
 			return playlist.R.PlaylistItems[i].Position > playlist.R.PlaylistItems[j].Position
 		})
-		resp.MaxItemPosition = playlist.R.PlaylistItems[0].Position
 
 		for i, item := range playlist.R.PlaylistItems {
 			resp.Items[i] = &PlaylistItem{

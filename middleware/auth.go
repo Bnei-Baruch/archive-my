@@ -11,7 +11,6 @@ import (
 	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
 	pkgerr "github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
@@ -151,15 +150,6 @@ func (a *Auth) AuthenticationMiddleware(tokenVerifier OIDCTokenVerifier) gin.Han
 
 func (a *Auth) getOrCreateUser() error {
 	if err := a.fetchUserFromDB(); err != nil || a.user != nil {
-		log.Info().Msgf("get user from db: %v", a.user)
-		return err
-	}
-
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if err := a.fetchUserFromDB(); err != nil || a.user != nil {
-		log.Info().Msgf("get user from db from mutex: %v", a.user)
 		return err
 	}
 
@@ -170,25 +160,26 @@ func (a *Auth) getOrCreateUser() error {
 		LastName:   null.StringFrom(a.claims.FamilyName),
 		Disabled:   false,
 	}
-	log.Info().Msgf("start create user: %v", user)
 
 	tx, err := a.db.Begin()
 	utils.Must(err)
-	if err := user.Insert(tx, boil.Infer()); err != nil {
+	// check if not unique on DB - "23505": "unique_violation",
+	errDB := user.Insert(tx, boil.Infer())
+	if errDB != nil {
 		utils.Must(tx.Rollback())
-		return pkgerr.Wrap(err, "create new user in DB")
+		if !strings.Contains(errDB.Error(), "pq: duplicate key value violates unique constraint \"users_accounts_id_key\"") {
+			return pkgerr.Wrap(errDB, "create new user in DB")
+		}
+	} else {
+		utils.Must(tx.Commit())
 	}
-	utils.Must(tx.Commit())
-
-	a.user = user
-	log.Info().Msgf("end create user: %v", a.user)
-	return nil
+	return a.fetchUserFromDB()
 }
 
 func (a *Auth) fetchUserFromDB() error {
 	var err error
 	a.user, err = models.Users(models.UserWhere.AccountsID.EQ(a.claims.Sub)).One(a.db)
-	if !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return pkgerr.Wrap(err, "lookup user in DB")
 	}
 	return nil

@@ -111,6 +111,7 @@ func (s *ModelsSuite) CreateReaction(user *models.User, kind, sType, sUID string
 	return reaction
 }
 
+
 func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data map[string]interface{}) *models.Bookmark {
 	bookmark := &models.Bookmark{
 		Name:       null.StringFrom(name),
