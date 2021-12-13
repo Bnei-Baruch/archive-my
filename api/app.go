@@ -103,6 +103,7 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest := a.Router.Group("/rest")
 	auth := middleware.Auth{}
 	rest.Use(auth.AuthenticationMiddleware(verifier))
+	rest.Use(middleware.AddToKeycloakGroup())
 
 	rest.GET("/playlists", a.handleGetPlaylists)
 	rest.POST("/playlists", a.handleCreatePlaylist)
