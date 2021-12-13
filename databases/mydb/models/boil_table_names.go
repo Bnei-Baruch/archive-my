@@ -5,6 +5,7 @@ package models
 
 var TableNames = struct {
 	BookmarkFolder   string
+	BookmarkTag      string
 	Bookmarks        string
 	Folders          string
 	History          string
@@ -16,6 +17,7 @@ var TableNames = struct {
 	Users            string
 }{
 	BookmarkFolder:   "bookmark_folder",
+	BookmarkTag:      "bookmark_tag",
 	Bookmarks:        "bookmarks",
 	Folders:          "folders",
 	History:          "history",

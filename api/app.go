@@ -100,8 +100,14 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	a.Router.GET("/reaction_count", a.handleReactionCount)
 	// TODO: public endpoint for public playlists (get by UID) string all internal IDs
 
-	rest := a.Router.Group("/rest")
 	auth := middleware.Auth{}
+
+	admin := a.Router.Group("/admin")
+	admin.Use(auth.AuthenticationMiddleware(verifier), auth.CheckModeratorMiddleware())
+	admin.GET("/bookmarks", a.handleGetAllPublicBookmarks)
+	admin.PUT("/bookmarks/:id", a.handleBookmarkModeration)
+
+	rest := a.Router.Group("/rest")
 	rest.Use(auth.AuthenticationMiddleware(verifier))
 
 	rest.GET("/playlists", a.handleGetPlaylists)
@@ -125,6 +131,7 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest.GET("/history", a.handleGetHistory)
 	rest.DELETE("/history/:id", a.handleDeleteHistory)
 	rest.GET("/bookmarks", a.handleGetBookmarks)
+	rest.GET("/public_bookmarks", a.handleGetAllPublicBookmarks)
 	rest.POST("/bookmarks", a.handleCreateBookmark)
 	rest.PUT("/bookmarks/:id", a.handleUpdateBookmark)
 	rest.DELETE("/bookmarks/:id", a.handleDeleteBookmark)

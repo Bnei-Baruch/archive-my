@@ -29,8 +29,8 @@ type Playlist struct {
 	Name          null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
 	Public        bool        `boil:"public" json:"public" toml:"public" yaml:"public"`
 	Properties    null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
-	PosterUnitUID null.String `boil:"poster_unit_uid" json:"poster_unit_uid,omitempty" toml:"poster_unit_uid" yaml:"poster_unit_uid,omitempty"`
 	CreatedAt     time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	PosterUnitUID null.String `boil:"poster_unit_uid" json:"poster_unit_uid,omitempty" toml:"poster_unit_uid" yaml:"poster_unit_uid,omitempty"`
 
 	R *playlistR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L playlistL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -43,8 +43,8 @@ var PlaylistColumns = struct {
 	Name          string
 	Public        string
 	Properties    string
-	PosterUnitUID string
 	CreatedAt     string
+	PosterUnitUID string
 }{
 	ID:            "id",
 	UID:           "uid",
@@ -52,8 +52,8 @@ var PlaylistColumns = struct {
 	Name:          "name",
 	Public:        "public",
 	Properties:    "properties",
-	PosterUnitUID: "poster_unit_uid",
 	CreatedAt:     "created_at",
+	PosterUnitUID: "poster_unit_uid",
 }
 
 var PlaylistTableColumns = struct {
@@ -63,8 +63,8 @@ var PlaylistTableColumns = struct {
 	Name          string
 	Public        string
 	Properties    string
-	PosterUnitUID string
 	CreatedAt     string
+	PosterUnitUID string
 }{
 	ID:            "playlists.id",
 	UID:           "playlists.uid",
@@ -72,20 +72,11 @@ var PlaylistTableColumns = struct {
 	Name:          "playlists.name",
 	Public:        "playlists.public",
 	Properties:    "playlists.properties",
-	PosterUnitUID: "playlists.poster_unit_uid",
 	CreatedAt:     "playlists.created_at",
+	PosterUnitUID: "playlists.poster_unit_uid",
 }
 
 // Generated where
-
-type whereHelperbool struct{ field string }
-
-func (w whereHelperbool) EQ(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperbool) NEQ(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperbool) LT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 var PlaylistWhere = struct {
 	ID            whereHelperint64
@@ -94,8 +85,8 @@ var PlaylistWhere = struct {
 	Name          whereHelpernull_String
 	Public        whereHelperbool
 	Properties    whereHelpernull_JSON
-	PosterUnitUID whereHelpernull_String
 	CreatedAt     whereHelpertime_Time
+	PosterUnitUID whereHelpernull_String
 }{
 	ID:            whereHelperint64{field: "\"playlists\".\"id\""},
 	UID:           whereHelperstring{field: "\"playlists\".\"uid\""},
@@ -103,8 +94,8 @@ var PlaylistWhere = struct {
 	Name:          whereHelpernull_String{field: "\"playlists\".\"name\""},
 	Public:        whereHelperbool{field: "\"playlists\".\"public\""},
 	Properties:    whereHelpernull_JSON{field: "\"playlists\".\"properties\""},
-	PosterUnitUID: whereHelpernull_String{field: "\"playlists\".\"poster_unit_uid\""},
 	CreatedAt:     whereHelpertime_Time{field: "\"playlists\".\"created_at\""},
+	PosterUnitUID: whereHelpernull_String{field: "\"playlists\".\"poster_unit_uid\""},
 }
 
 // PlaylistRels is where relationship names are stored.
@@ -131,7 +122,7 @@ func (*playlistR) NewStruct() *playlistR {
 type playlistL struct{}
 
 var (
-	playlistAllColumns            = []string{"id", "uid", "user_id", "name", "public", "properties", "poster_unit_uid", "created_at"}
+	playlistAllColumns            = []string{"id", "uid", "user_id", "name", "public", "properties", "created_at", "poster_unit_uid"}
 	playlistColumnsWithoutDefault = []string{"uid", "user_id", "name", "properties", "poster_unit_uid"}
 	playlistColumnsWithDefault    = []string{"id", "public", "created_at"}
 	playlistPrimaryKeyColumns     = []string{"id"}

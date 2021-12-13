@@ -148,6 +148,17 @@ func (a *Auth) AuthenticationMiddleware(tokenVerifier OIDCTokenVerifier) gin.Han
 	}
 }
 
+func (a *Auth) CheckModeratorMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if ok := a.claims.HasAnyRole("gxy_admin" /*"kmedia_moderator"*/); !ok {
+			errs.NewForbiddenError(nil).Abort(c)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func (a *Auth) getOrCreateUser() error {
 	if err := a.fetchUserFromDB(); err != nil || a.user != nil {
 		return err

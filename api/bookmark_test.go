@@ -28,7 +28,7 @@ func (s *ApiTestSuite) TestBookmark_getBookmarks() {
 	// with Bookmarks
 	bookmarks := make([]*models.Bookmark, 5)
 	for i := range bookmarks {
-		bookmarks[i] = s.CreateBookmark(user, fmt.Sprintf("Bookmark-%d", i), "", nil)
+		bookmarks[i] = s.CreateBookmark(user, fmt.Sprintf("Bookmark-%d", i), "", nil, false)
 	}
 
 	req, _ = http.NewRequest(http.MethodGet, "/rest/bookmarks?order_by=id", nil)
@@ -138,7 +138,7 @@ func (s *ApiTestSuite) TestBookmark_updateBookmark() {
 	data := map[string]interface{}{
 		"key1": "value1",
 	}
-	bookmark := s.CreateBookmark(user, "bookmark", "", data)
+	bookmark := s.CreateBookmark(user, "bookmark", "", data, false)
 
 	payload, err := json.Marshal(map[string]interface{}{
 		"name": "edited bookmark",
@@ -160,7 +160,7 @@ func (s *ApiTestSuite) TestBookmark_updateBookmark() {
 
 func (s *ApiTestSuite) TestBookmark_updateBookmarkFolders() {
 	user := s.CreateUser()
-	bookmark := s.CreateBookmark(user, "bookmark", "", nil)
+	bookmark := s.CreateBookmark(user, "bookmark", "", nil, false)
 
 	flen := 10 + rand.Intn(3)
 	folders := make([]*models.Folder, flen)
@@ -225,7 +225,7 @@ func (s *ApiTestSuite) TestBookmark_updateBookmarkFolders() {
 
 func (s *ApiTestSuite) TestBookmark_deleteBookmark() {
 	user := s.CreateUser()
-	bookmark := s.CreateBookmark(user, "bookmark", "", nil)
+	bookmark := s.CreateBookmark(user, "bookmark", "", nil, false)
 	bbfs := make([]*models.BookmarkFolder, 5)
 	for i, _ := range bbfs {
 		f := s.CreateFolder(user, fmt.Sprintf("test bookmark folder %d", i))
@@ -345,7 +345,7 @@ func (s *ApiTestSuite) TestBookmark_deleteFolder() {
 	folder := s.CreateFolder(user, "bookmark folder")
 	bbfs := make([]*models.BookmarkFolder, 5)
 	for i, _ := range bbfs {
-		b := s.CreateBookmark(user, fmt.Sprintf("test bookmark folder %d", i), "", nil)
+		b := s.CreateBookmark(user, fmt.Sprintf("test bookmark folder %d", i), "", nil, false)
 		bbfs[i] = &models.BookmarkFolder{
 			BookmarkID: b.ID,
 		}
@@ -377,6 +377,7 @@ func (s *ApiTestSuite) assertBookmark(expected *models.Bookmark, actual *Bookmar
 	s.Equal(expected.Name.String, actual.Name, "Name [%d]", idx)
 	s.Equal(expected.SourceType, actual.SourceType, "SourceType [%d]", idx)
 	s.Equal(expected.SourceUID, actual.SourceUID, "SourceUID [%d]", idx)
+	s.Equal(expected.Public, actual.Public, "Public [%d]", idx)
 
 	if expected.Data.Valid {
 		var data map[string]interface{}

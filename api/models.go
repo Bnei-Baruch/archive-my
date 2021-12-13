@@ -140,6 +140,7 @@ type SubscribeRequest struct {
 type GetBookmarksRequest struct {
 	ListRequest
 	QueryFilter
+	StatusFilter    string  `form:"status" binding:"omitempty"`
 	FolderIDsFilter []int64 `form:"folder_id" binding:"omitempty"`
 }
 
@@ -153,13 +154,20 @@ type AddBookmarksRequest struct {
 	SourceUID  string                 `json:"source_uid" binding:"required,max=8"`
 	SourceType string                 `json:"source_type" binding:"required"`
 	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
+	Public     bool                   `json:"public" binding:"omitempty"`
 	Data       map[string]interface{} `json:"data" binding:"omitempty"`
+	TagsUIDs   []string               `json:"tag_uids" binding:"omitempty"`
 }
 
 type UpdateBookmarkRequest struct {
 	NameRequest
 	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
 	Data      map[string]interface{} `json:"data" binding:"omitempty"`
+	TagsUIDs  []string               `json:"tag_uids" binding:"omitempty"`
+}
+
+type BookmarkModerationRequest struct {
+	Accepted null.Bool `json:"accepted" binding:"omitempty"`
 }
 
 //Folder
@@ -232,11 +240,15 @@ type Subscription struct {
 
 type Bookmark struct {
 	ID         int64                  `json:"id"`
+	UID        string                 `json:"uid",  binding:"omitempty,len=8"`
 	Name       string                 `json:"name"`
 	SourceUID  string                 `json:"source_uid"`
 	SourceType string                 `json:"source_type"`
 	Data       map[string]interface{} `json:"data,omitempty"`
 	FolderIds  []int64                `json:"folder_ids,omitempty"`
+	Public     bool                   `json:"public,omitempty"`
+	Accepted   null.Bool              `json:"accepted,omitempty"`
+	TagUIds    []string               `json:"tag_uids,omitempty"`
 }
 
 type Folder struct {

@@ -18,6 +18,12 @@ func (c *PlaylistUIDChecker) Check(exec boil.Executor, uid string) (exists bool,
 	return models.Playlists(models.PlaylistWhere.UID.EQ(uid)).Exists(exec)
 }
 
+type BookmarkUIDChecker struct{}
+
+func (c *BookmarkUIDChecker) Check(exec boil.Executor, uid string) (exists bool, err error) {
+	return models.Bookmarks(models.BookmarkWhere.UID.EQ(uid)).Exists(exec)
+}
+
 func GetFreeUID(exec boil.Executor, checker UIDChecker) (uid string, err error) {
 	for {
 		uid = utils.GenerateUID(8)

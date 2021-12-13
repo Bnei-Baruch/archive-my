@@ -882,7 +882,6 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-
 //Bookmark handlers
 func (a *App) handleGetBookmarks(c *gin.Context) {
 	var r GetBookmarksRequest
@@ -897,41 +896,9 @@ func (a *App) handleGetBookmarks(c *gin.Context) {
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
-
 	mods := []qm.QueryMod{models.BookmarkWhere.UserID.EQ(user.ID)}
 
-	total, err := models.Bookmarks(mods...).Count(db)
-
-	mods = append(mods, qm.Load(models.BookmarkRels.BookmarkFolders))
-	_, offset := appendListMods(&mods, r.ListRequest)
-	if int64(offset) >= total {
-		concludeRequest(c, new(GetBookmarksResponse), nil)
-		return
-	}
-	appendQueryFilter(&mods, r.QueryFilter, "name")
-	if len(r.FolderIDsFilter) > 0 {
-		mods = append(mods,
-			qm.InnerJoin("bookmark_folder bf ON id = bf.bookmark_id"),
-			qm.WhereIn("bf.folder_id in ?", utils.ConvertArgsInt64(r.FolderIDsFilter)...),
-		)
-	}
-
-	bookmarks, err := models.Bookmarks(mods...).All(db)
-	if err != nil {
-		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
-		return
-	}
-
-	items := make([]*Bookmark, len(bookmarks))
-	for i, b := range bookmarks {
-		items[i] = makeBookmarkDTO(b)
-	}
-
-	resp := GetBookmarksResponse{
-		ListResponse: ListResponse{Total: total},
-		Items:        items,
-	}
-	concludeRequest(c, resp, err)
+	a.respBookmarks(c, db, mods, r)
 }
 
 func (a *App) handleCreateBookmark(c *gin.Context) {
@@ -947,6 +914,7 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
+
 	bookmark := &models.Bookmark{
 		UserID:     user.ID,
 		SourceUID:  r.SourceUID,
@@ -963,8 +931,17 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 			return
 		}
 	}
+	if r.Public {
+		bookmark.Public = r.Public
+	}
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		err := bookmark.Insert(tx, boil.Infer())
+		uid, err := domain.GetFreeUID(tx, new(domain.PlaylistUIDChecker))
+		if err != nil {
+			return pkgerr.Wrap(err, "get free UID")
+		}
+		bookmark.UID = uid
+
+		err = bookmark.Insert(tx, boil.Infer())
 		if err != nil {
 			return pkgerr.WithStack(err)
 		}
@@ -976,6 +953,18 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 				}
 			}
 			if err := bookmark.AddBookmarkFolders(tx, true, bbfs...); err != nil {
+				return pkgerr.WithStack(err)
+			}
+		}
+
+		if r.TagsUIDs != nil {
+			bts := make([]*models.BookmarkTag, len(r.TagsUIDs))
+			for i, uid := range r.TagsUIDs {
+				bts[i] = &models.BookmarkTag{
+					TagUID: uid,
+				}
+			}
+			if err := bookmark.AddBookmarkTags(tx, true, bts...); err != nil {
 				return pkgerr.WithStack(err)
 			}
 		}
@@ -1052,6 +1041,18 @@ func (a *App) handleUpdateBookmark(c *gin.Context) {
 			}
 		}
 
+		if r.TagsUIDs != nil {
+			bts := make([]*models.BookmarkTag, len(r.TagsUIDs))
+			for i, uid := range r.TagsUIDs {
+				bts[i] = &models.BookmarkTag{
+					TagUID: uid,
+				}
+			}
+			if err := b.AddBookmarkTags(tx, true, bts...); err != nil {
+				return pkgerr.WithStack(err)
+			}
+		}
+
 		if _, err := b.Update(tx, boil.Infer()); err != nil {
 			return err
 		}
@@ -1096,6 +1097,56 @@ func (a *App) handleDeleteBookmark(c *gin.Context) {
 	})
 
 	concludeRequest(c, nil, err)
+}
+
+func (a *App) handleGetPublicBookmarks(c *gin.Context) {
+	var r GetBookmarksRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	mods := []qm.QueryMod{models.BookmarkWhere.Public.EQ(true)}
+
+	a.respBookmarks(c, db, mods, r)
+}
+
+func (a *App) respBookmarks(c *gin.Context, db *sql.DB, mods []qm.QueryMod, r GetBookmarksRequest) {
+
+	total, err := models.Bookmarks(mods...).Count(db)
+	mods = append(mods,
+		qm.Load(models.BookmarkRels.BookmarkFolders),
+		qm.Load(models.BookmarkRels.BookmarkTags),
+	)
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(GetBookmarksResponse), nil)
+		return
+	}
+	appendQueryFilter(&mods, r.QueryFilter, "name")
+	if len(r.FolderIDsFilter) > 0 {
+		mods = append(mods,
+			qm.InnerJoin("bookmark_folder bf ON id = bf.bookmark_id"),
+			qm.WhereIn("bf.folder_id in ?", utils.ConvertArgsInt64(r.FolderIDsFilter)...),
+		)
+	}
+
+	bookmarks, err := models.Bookmarks(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Bookmark, len(bookmarks))
+	for i, b := range bookmarks {
+		items[i] = makeBookmarkDTO(b)
+	}
+
+	resp := GetBookmarksResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        items,
+	}
+	concludeRequest(c, resp, err)
 }
 
 //Folder handlers
@@ -1346,8 +1397,11 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 	resp := Bookmark{
 		ID:         bookmark.ID,
+		UID:        bookmark.UID,
 		SourceUID:  bookmark.SourceUID,
 		SourceType: bookmark.SourceType,
+		Public:     bookmark.Public,
+		Accepted:   bookmark.Accepted,
 	}
 
 	if bookmark.Name.Valid {
@@ -1362,6 +1416,13 @@ func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 		resp.FolderIds = make([]int64, len(bookmark.R.BookmarkFolders))
 		for i, bbf := range bookmark.R.BookmarkFolders {
 			resp.FolderIds[i] = bbf.FolderID
+		}
+	}
+
+	if bookmark.R != nil && bookmark.R.BookmarkTags != nil {
+		resp.TagUIds = make([]string, len(bookmark.R.BookmarkTags))
+		for i, bt := range bookmark.R.BookmarkTags {
+			resp.TagUIds[i] = bt.TagUID
 		}
 	}
 

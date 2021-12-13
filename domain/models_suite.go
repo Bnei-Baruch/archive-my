@@ -111,13 +111,14 @@ func (s *ModelsSuite) CreateReaction(user *models.User, kind, sType, sUID string
 	return reaction
 }
 
-
-func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data map[string]interface{}) *models.Bookmark {
+func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data map[string]interface{}, public bool) *models.Bookmark {
 	bookmark := &models.Bookmark{
 		Name:       null.StringFrom(name),
 		UserID:     user.ID,
+		UID:        utils.GenerateUID(8),
 		SourceUID:  utils.GenerateUID(8),
 		SourceType: sType,
+		Public:     public,
 	}
 	if sType != "" {
 		bookmark.SourceType = "TEST_CONTENT_TYPE"
