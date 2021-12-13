@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lib/pq"
 	pkgerr "github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/volatiletech/null/v8"
@@ -324,6 +325,44 @@ func (c *Chronicles) insertEvent(tx *sql.Tx, ev *ChronicleEvent, user *models.Us
 	}
 
 	return nil
+}
+
+func (c *Chronicles) subsForUpdateByCUID(cuIDs []*int64, subs []*models.Subscription, forUpdate *models.SubscriptionSlice) ([]*models.Subscription, error) {
+	q := `SELECT array_agg(DISTINCT ccu.id) FROM collections_content_units ccu
+		INNER JOIN collections c ON ccu.collection_id = c.id
+		WHERE cu.uid = ANY($1) AND secure = 0 AND published IS TRUE`
+	var cids pq.Int64Array
+	if err := queries.Raw(q, pq.Array(cuIDs)).QueryRow(c.MDB).Scan(&cids); err != nil {
+		return nil, err
+	}
+
+	forUpdate := models.SubscriptionSlice{}
+	for rows.Next() {
+		var coUID string
+		var typeID int
+
+		err = rows.Scan(&coUID, &typeID)
+		if err != nil {
+			return pkgerr.Wrap(err, "rows.Scan")
+		}
+
+		name := mdb.ContentTypesByID[typeID]
+		for _, s := range byTypes {
+			if s.ContentType.String == name {
+				forUpdate = append(forUpdate, s)
+			}
+		}
+		for _, s := range byCOs {
+			if s.CollectionUID.String == coUID {
+				forUpdate = append(forUpdate, s)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return pkgerr.Wrap(err, "rows.Err")
+	}
+	//typeIds = mdb.ContentTypesByID[typeID]
+
 }
 
 func (c *Chronicles) updateSubscriptions(tx boil.Executor, ev *ChronicleEvent, user *models.User) error {

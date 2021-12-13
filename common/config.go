@@ -6,22 +6,25 @@ import (
 )
 
 type config struct {
-	ListenAddress string
-	GinMode       string
-	MyDBUrl       string
-	MDBUrl        string
-	ChroniclesUrl string
-	AccountsUrls  []string
+	ListenAddress  string
+	GinMode        string
+	MyDBUrl        string
+	MDBUrl         string
+	ChroniclesUrl  string
+	AccountsUrls   []string
+	DefaultKCGroup string
+	KCGroupUrl     string
 }
 
 func newConfig() *config {
 	return &config{
-		ListenAddress: ":8080",
-		GinMode:       "debug",
-		MyDBUrl:       "postgres://user:password@localhost/mydb?sslmode=disable",
-		MDBUrl:        "postgres://user:password@localhost/mdb?sslmode=disable",
-		AccountsUrls:  []string{"https://accounts.kab.info/auth/realms/main"},
-		ChroniclesUrl: "https://chronicle-sserver/scan",
+		ListenAddress:  ":8080",
+		GinMode:        "debug",
+		MyDBUrl:        "postgres://user:password@localhost/mydb?sslmode=disable",
+		MDBUrl:         "postgres://user:password@localhost/mdb?sslmode=disable",
+		AccountsUrls:   []string{"https://accounts.kab.info/auth/realms/main"},
+		ChroniclesUrl:  "https://chronicle-sserver/scan",
+		DefaultKCGroup: "new role",
 	}
 }
 
@@ -47,5 +50,11 @@ func Init() {
 	}
 	if val := os.Getenv("ACCOUNTS_URL"); val != "" {
 		Config.AccountsUrls = strings.Split(val, ",")
+	}
+	if val := os.Getenv("DEFAULT_KC_GROUP"); val != "" {
+		Config.DefaultKCGroup = val
+	}
+	if val := os.Getenv("KC_ADD_GROUP_URL"); val != "" {
+		Config.KCGroupUrl = val
 	}
 }
