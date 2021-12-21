@@ -30,9 +30,6 @@ type Bookmark struct {
 	SourceType string      `boil:"source_type" json:"source_type" toml:"source_type" yaml:"source_type"`
 	Data       null.JSON   `boil:"data" json:"data,omitempty" toml:"data" yaml:"data,omitempty"`
 	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	Public     bool        `boil:"public" json:"public" toml:"public" yaml:"public"`
-	Accepted   null.Bool   `boil:"accepted" json:"accepted,omitempty" toml:"accepted" yaml:"accepted,omitempty"`
-	UID        string      `boil:"uid" json:"uid" toml:"uid" yaml:"uid"`
 
 	R *bookmarkR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L bookmarkL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -46,9 +43,6 @@ var BookmarkColumns = struct {
 	SourceType string
 	Data       string
 	CreatedAt  string
-	Public     string
-	Accepted   string
-	UID        string
 }{
 	ID:         "id",
 	Name:       "name",
@@ -57,9 +51,6 @@ var BookmarkColumns = struct {
 	SourceType: "source_type",
 	Data:       "data",
 	CreatedAt:  "created_at",
-	Public:     "public",
-	Accepted:   "accepted",
-	UID:        "uid",
 }
 
 var BookmarkTableColumns = struct {
@@ -70,9 +61,6 @@ var BookmarkTableColumns = struct {
 	SourceType string
 	Data       string
 	CreatedAt  string
-	Public     string
-	Accepted   string
-	UID        string
 }{
 	ID:         "bookmarks.id",
 	Name:       "bookmarks.name",
@@ -81,9 +69,6 @@ var BookmarkTableColumns = struct {
 	SourceType: "bookmarks.source_type",
 	Data:       "bookmarks.data",
 	CreatedAt:  "bookmarks.created_at",
-	Public:     "bookmarks.public",
-	Accepted:   "bookmarks.accepted",
-	UID:        "bookmarks.uid",
 }
 
 // Generated where
@@ -111,6 +96,29 @@ func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
 
 func (w whereHelpernull_String) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
 func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+
+type whereHelperstring struct{ field string }
+
+func (w whereHelperstring) EQ(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperstring) NEQ(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperstring) LT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperstring) LTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperstring) IN(slice []string) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
 
 type whereHelpernull_JSON struct{ field string }
 
@@ -157,39 +165,6 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
-type whereHelperbool struct{ field string }
-
-func (w whereHelperbool) EQ(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperbool) NEQ(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperbool) LT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-
-type whereHelpernull_Bool struct{ field string }
-
-func (w whereHelpernull_Bool) EQ(x null.Bool) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_Bool) NEQ(x null.Bool) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Bool) LT(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Bool) LTE(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Bool) GT(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Bool) GTE(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
-func (w whereHelpernull_Bool) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Bool) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-
 var BookmarkWhere = struct {
 	ID         whereHelperint64
 	Name       whereHelpernull_String
@@ -198,9 +173,6 @@ var BookmarkWhere = struct {
 	SourceType whereHelperstring
 	Data       whereHelpernull_JSON
 	CreatedAt  whereHelpertime_Time
-	Public     whereHelperbool
-	Accepted   whereHelpernull_Bool
-	UID        whereHelperstring
 }{
 	ID:         whereHelperint64{field: "\"bookmarks\".\"id\""},
 	Name:       whereHelpernull_String{field: "\"bookmarks\".\"name\""},
@@ -209,27 +181,21 @@ var BookmarkWhere = struct {
 	SourceType: whereHelperstring{field: "\"bookmarks\".\"source_type\""},
 	Data:       whereHelpernull_JSON{field: "\"bookmarks\".\"data\""},
 	CreatedAt:  whereHelpertime_Time{field: "\"bookmarks\".\"created_at\""},
-	Public:     whereHelperbool{field: "\"bookmarks\".\"public\""},
-	Accepted:   whereHelpernull_Bool{field: "\"bookmarks\".\"accepted\""},
-	UID:        whereHelperstring{field: "\"bookmarks\".\"uid\""},
 }
 
 // BookmarkRels is where relationship names are stored.
 var BookmarkRels = struct {
 	User            string
 	BookmarkFolders string
-	BookmarkTags    string
 }{
 	User:            "User",
 	BookmarkFolders: "BookmarkFolders",
-	BookmarkTags:    "BookmarkTags",
 }
 
 // bookmarkR is where relationships are stored.
 type bookmarkR struct {
 	User            *User               `boil:"User" json:"User" toml:"User" yaml:"User"`
 	BookmarkFolders BookmarkFolderSlice `boil:"BookmarkFolders" json:"BookmarkFolders" toml:"BookmarkFolders" yaml:"BookmarkFolders"`
-	BookmarkTags    BookmarkTagSlice    `boil:"BookmarkTags" json:"BookmarkTags" toml:"BookmarkTags" yaml:"BookmarkTags"`
 }
 
 // NewStruct creates a new relationship struct
@@ -241,9 +207,9 @@ func (*bookmarkR) NewStruct() *bookmarkR {
 type bookmarkL struct{}
 
 var (
-	bookmarkAllColumns            = []string{"id", "name", "user_id", "source_uid", "source_type", "data", "created_at", "public", "accepted", "uid"}
-	bookmarkColumnsWithoutDefault = []string{"name", "user_id", "source_uid", "source_type", "data", "accepted", "uid"}
-	bookmarkColumnsWithDefault    = []string{"id", "created_at", "public"}
+	bookmarkAllColumns            = []string{"id", "name", "user_id", "source_uid", "source_type", "data", "created_at"}
+	bookmarkColumnsWithoutDefault = []string{"name", "user_id", "source_uid", "source_type", "data"}
+	bookmarkColumnsWithDefault    = []string{"id", "created_at"}
 	bookmarkPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -368,27 +334,6 @@ func (o *Bookmark) BookmarkFolders(mods ...qm.QueryMod) bookmarkFolderQuery {
 
 	if len(queries.GetSelect(query.Query)) == 0 {
 		queries.SetSelect(query.Query, []string{"\"bookmark_folder\".*"})
-	}
-
-	return query
-}
-
-// BookmarkTags retrieves all the bookmark_tag's BookmarkTags with an executor.
-func (o *Bookmark) BookmarkTags(mods ...qm.QueryMod) bookmarkTagQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.Where("\"bookmark_tag\".\"bookmark_id\"=?", o.ID),
-	)
-
-	query := BookmarkTags(queryMods...)
-	queries.SetFrom(query.Query, "\"bookmark_tag\"")
-
-	if len(queries.GetSelect(query.Query)) == 0 {
-		queries.SetSelect(query.Query, []string{"\"bookmark_tag\".*"})
 	}
 
 	return query
@@ -581,97 +526,6 @@ func (bookmarkL) LoadBookmarkFolders(e boil.Executor, singular bool, maybeBookma
 	return nil
 }
 
-// LoadBookmarkTags allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (bookmarkL) LoadBookmarkTags(e boil.Executor, singular bool, maybeBookmark interface{}, mods queries.Applicator) error {
-	var slice []*Bookmark
-	var object *Bookmark
-
-	if singular {
-		object = maybeBookmark.(*Bookmark)
-	} else {
-		slice = *maybeBookmark.(*[]*Bookmark)
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &bookmarkR{}
-		}
-		args = append(args, object.ID)
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &bookmarkR{}
-			}
-
-			for _, a := range args {
-				if a == obj.ID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.ID)
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`bookmark_tag`),
-		qm.WhereIn(`bookmark_tag.bookmark_id in ?`, args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.Query(e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load bookmark_tag")
-	}
-
-	var resultSlice []*BookmarkTag
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice bookmark_tag")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on bookmark_tag")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for bookmark_tag")
-	}
-
-	if singular {
-		object.R.BookmarkTags = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &bookmarkTagR{}
-			}
-			foreign.R.Bookmark = object
-		}
-		return nil
-	}
-
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
-			if local.ID == foreign.BookmarkID {
-				local.R.BookmarkTags = append(local.R.BookmarkTags, foreign)
-				if foreign.R == nil {
-					foreign.R = &bookmarkTagR{}
-				}
-				foreign.R.Bookmark = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
 // SetUser of the bookmark to the related item.
 // Sets o.R.User to related.
 // Adds o to related.R.Bookmarks.
@@ -761,58 +615,6 @@ func (o *Bookmark) AddBookmarkFolders(exec boil.Executor, insert bool, related .
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &bookmarkFolderR{
-				Bookmark: o,
-			}
-		} else {
-			rel.R.Bookmark = o
-		}
-	}
-	return nil
-}
-
-// AddBookmarkTags adds the given related objects to the existing relationships
-// of the bookmark, optionally inserting them as new records.
-// Appends related to o.R.BookmarkTags.
-// Sets related.R.Bookmark appropriately.
-func (o *Bookmark) AddBookmarkTags(exec boil.Executor, insert bool, related ...*BookmarkTag) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			rel.BookmarkID = o.ID
-			if err = rel.Insert(exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"bookmark_tag\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"bookmark_id"}),
-				strmangle.WhereClause("\"", "\"", 2, bookmarkTagPrimaryKeyColumns),
-			)
-			values := []interface{}{o.ID, rel.TagUID, rel.BookmarkID}
-
-			if boil.DebugMode {
-				fmt.Fprintln(boil.DebugWriter, updateQuery)
-				fmt.Fprintln(boil.DebugWriter, values)
-			}
-			if _, err = exec.Exec(updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
-
-			rel.BookmarkID = o.ID
-		}
-	}
-
-	if o.R == nil {
-		o.R = &bookmarkR{
-			BookmarkTags: related,
-		}
-	} else {
-		o.R.BookmarkTags = append(o.R.BookmarkTags, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &bookmarkTagR{
 				Bookmark: o,
 			}
 		} else {

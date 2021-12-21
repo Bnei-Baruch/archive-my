@@ -5,10 +5,11 @@ package models
 
 var TableNames = struct {
 	BookmarkFolder   string
-	BookmarkTag      string
 	Bookmarks        string
 	Folders          string
 	History          string
+	LabelTag         string
+	Labels           string
 	PlaylistItems    string
 	Playlists        string
 	Reactions        string
@@ -17,10 +18,11 @@ var TableNames = struct {
 	Users            string
 }{
 	BookmarkFolder:   "bookmark_folder",
-	BookmarkTag:      "bookmark_tag",
 	Bookmarks:        "bookmarks",
 	Folders:          "folders",
 	History:          "history",
+	LabelTag:         "label_tag",
+	Labels:           "labels",
 	PlaylistItems:    "playlist_items",
 	Playlists:        "playlists",
 	Reactions:        "reactions",
