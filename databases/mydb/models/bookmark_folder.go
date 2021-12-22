@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -23,9 +22,8 @@ import (
 
 // BookmarkFolder is an object representing the database table.
 type BookmarkFolder struct {
-	BookmarkID int64    `boil:"bookmark_id" json:"bookmark_id" toml:"bookmark_id" yaml:"bookmark_id"`
-	FolderID   int64    `boil:"folder_id" json:"folder_id" toml:"folder_id" yaml:"folder_id"`
-	Position   null.Int `boil:"position" json:"position,omitempty" toml:"position" yaml:"position,omitempty"`
+	BookmarkID int64 `boil:"bookmark_id" json:"bookmark_id" toml:"bookmark_id" yaml:"bookmark_id"`
+	FolderID   int64 `boil:"folder_id" json:"folder_id" toml:"folder_id" yaml:"folder_id"`
 
 	R *bookmarkFolderR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L bookmarkFolderL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -34,21 +32,17 @@ type BookmarkFolder struct {
 var BookmarkFolderColumns = struct {
 	BookmarkID string
 	FolderID   string
-	Position   string
 }{
 	BookmarkID: "bookmark_id",
 	FolderID:   "folder_id",
-	Position:   "position",
 }
 
 var BookmarkFolderTableColumns = struct {
 	BookmarkID string
 	FolderID   string
-	Position   string
 }{
 	BookmarkID: "bookmark_folder.bookmark_id",
 	FolderID:   "bookmark_folder.folder_id",
-	Position:   "bookmark_folder.position",
 }
 
 // Generated where
@@ -76,53 +70,24 @@ func (w whereHelperint64) NIN(slice []int64) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
-type whereHelpernull_Int struct{ field string }
-
-func (w whereHelpernull_Int) EQ(x null.Int) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_Int) NEQ(x null.Int) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Int) LT(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Int) LTE(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Int) GT(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Int) GTE(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
-func (w whereHelpernull_Int) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Int) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-
 var BookmarkFolderWhere = struct {
 	BookmarkID whereHelperint64
 	FolderID   whereHelperint64
-	Position   whereHelpernull_Int
 }{
 	BookmarkID: whereHelperint64{field: "\"bookmark_folder\".\"bookmark_id\""},
 	FolderID:   whereHelperint64{field: "\"bookmark_folder\".\"folder_id\""},
-	Position:   whereHelpernull_Int{field: "\"bookmark_folder\".\"position\""},
 }
 
 // BookmarkFolderRels is where relationship names are stored.
 var BookmarkFolderRels = struct {
-	Bookmark string
-	Folder   string
+	Folder string
 }{
-	Bookmark: "Bookmark",
-	Folder:   "Folder",
+	Folder: "Folder",
 }
 
 // bookmarkFolderR is where relationships are stored.
 type bookmarkFolderR struct {
-	Bookmark *Bookmark `boil:"Bookmark" json:"Bookmark" toml:"Bookmark" yaml:"Bookmark"`
-	Folder   *Folder   `boil:"Folder" json:"Folder" toml:"Folder" yaml:"Folder"`
+	Folder *Folder `boil:"Folder" json:"Folder" toml:"Folder" yaml:"Folder"`
 }
 
 // NewStruct creates a new relationship struct
@@ -134,8 +99,8 @@ func (*bookmarkFolderR) NewStruct() *bookmarkFolderR {
 type bookmarkFolderL struct{}
 
 var (
-	bookmarkFolderAllColumns            = []string{"bookmark_id", "folder_id", "position"}
-	bookmarkFolderColumnsWithoutDefault = []string{"bookmark_id", "folder_id", "position"}
+	bookmarkFolderAllColumns            = []string{"bookmark_id", "folder_id"}
+	bookmarkFolderColumnsWithoutDefault = []string{"bookmark_id", "folder_id"}
 	bookmarkFolderColumnsWithDefault    = []string{}
 	bookmarkFolderPrimaryKeyColumns     = []string{"folder_id", "bookmark_id"}
 )
@@ -231,20 +196,6 @@ func (q bookmarkFolderQuery) Exists(exec boil.Executor) (bool, error) {
 	return count > 0, nil
 }
 
-// Bookmark pointed to by the foreign key.
-func (o *BookmarkFolder) Bookmark(mods ...qm.QueryMod) bookmarkQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.BookmarkID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	query := Bookmarks(queryMods...)
-	queries.SetFrom(query.Query, "\"bookmarks\"")
-
-	return query
-}
-
 // Folder pointed to by the foreign key.
 func (o *BookmarkFolder) Folder(mods ...qm.QueryMod) folderQuery {
 	queryMods := []qm.QueryMod{
@@ -257,102 +208,6 @@ func (o *BookmarkFolder) Folder(mods ...qm.QueryMod) folderQuery {
 	queries.SetFrom(query.Query, "\"folders\"")
 
 	return query
-}
-
-// LoadBookmark allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (bookmarkFolderL) LoadBookmark(e boil.Executor, singular bool, maybeBookmarkFolder interface{}, mods queries.Applicator) error {
-	var slice []*BookmarkFolder
-	var object *BookmarkFolder
-
-	if singular {
-		object = maybeBookmarkFolder.(*BookmarkFolder)
-	} else {
-		slice = *maybeBookmarkFolder.(*[]*BookmarkFolder)
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &bookmarkFolderR{}
-		}
-		args = append(args, object.BookmarkID)
-
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &bookmarkFolderR{}
-			}
-
-			for _, a := range args {
-				if a == obj.BookmarkID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.BookmarkID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`bookmarks`),
-		qm.WhereIn(`bookmarks.id in ?`, args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.Query(e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load Bookmark")
-	}
-
-	var resultSlice []*Bookmark
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Bookmark")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for bookmarks")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for bookmarks")
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.Bookmark = foreign
-		if foreign.R == nil {
-			foreign.R = &bookmarkR{}
-		}
-		foreign.R.BookmarkFolders = append(foreign.R.BookmarkFolders, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.BookmarkID == foreign.ID {
-				local.R.Bookmark = foreign
-				if foreign.R == nil {
-					foreign.R = &bookmarkR{}
-				}
-				foreign.R.BookmarkFolders = append(foreign.R.BookmarkFolders, local)
-				break
-			}
-		}
-	}
-
-	return nil
 }
 
 // LoadFolder allows an eager lookup of values, cached into the
@@ -446,52 +301,6 @@ func (bookmarkFolderL) LoadFolder(e boil.Executor, singular bool, maybeBookmarkF
 				break
 			}
 		}
-	}
-
-	return nil
-}
-
-// SetBookmark of the bookmarkFolder to the related item.
-// Sets o.R.Bookmark to related.
-// Adds o to related.R.BookmarkFolders.
-func (o *BookmarkFolder) SetBookmark(exec boil.Executor, insert bool, related *Bookmark) error {
-	var err error
-	if insert {
-		if err = related.Insert(exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
-
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"bookmark_folder\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"bookmark_id"}),
-		strmangle.WhereClause("\"", "\"", 2, bookmarkFolderPrimaryKeyColumns),
-	)
-	values := []interface{}{related.ID, o.FolderID, o.BookmarkID}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, updateQuery)
-		fmt.Fprintln(boil.DebugWriter, values)
-	}
-	if _, err = exec.Exec(updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.BookmarkID = related.ID
-	if o.R == nil {
-		o.R = &bookmarkFolderR{
-			Bookmark: related,
-		}
-	} else {
-		o.R.Bookmark = related
-	}
-
-	if related.R == nil {
-		related.R = &bookmarkR{
-			BookmarkFolders: BookmarkFolderSlice{o},
-		}
-	} else {
-		related.R.BookmarkFolders = append(related.R.BookmarkFolders, o)
 	}
 
 	return nil

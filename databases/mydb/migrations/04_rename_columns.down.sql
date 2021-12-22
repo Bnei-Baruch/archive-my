@@ -7,14 +7,14 @@ ALTER TABLE bookmarks
 ALTER TABLE bookmarks
     RENAME COLUMN subject_type TO source_type;
 
-ALTER TABLE bookmarks
-    DROP COLUMN position;
+ALTER TABLE bookmark_folder
+    ADD COLUMN position INTEGER;
 
 ALTER TABLE bookmark_folder
     DROP CONSTRAINT bookmark_folder_bookmark_id_uidx;
 
 ALTER TABLE bookmark_folder
-    ADD CONSTRAINT bookmark_folder_bookmark_id_fkey PRIMARY KEY (folder_id, bookmark_id);
+    ADD CONSTRAINT bookmark_folder_pkey PRIMARY KEY (folder_id, bookmark_id);
 
 
 CREATE
