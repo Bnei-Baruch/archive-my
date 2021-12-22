@@ -60,7 +60,7 @@ func (s *ApiTestSuite) TestBookmark_createBookmark_badRequest() {
 		"source_uid":  "12345678",
 		"source_type": "TEST",
 		"folder_ids":  "[1, 2]",
-		"data":        "malformed json {}",
+		"properties":  "malformed json {}",
 	})
 	s.Require().NoError(err)
 	req, _ := http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
@@ -113,7 +113,7 @@ func (s *ApiTestSuite) TestBookmark_createBookmark() {
 		"source_uid":  "12345678",
 		"source_type": "TEST",
 		"folder_ids":  []int64{f1.ID, f2.ID},
-		"data": map[string]interface{}{
+		"properties": map[string]interface{}{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -125,9 +125,9 @@ func (s *ApiTestSuite) TestBookmark_createBookmark() {
 
 	s.NotZero(resp.ID, "ID")
 	s.Equal(resp.Name, bName, "Name")
-	s.Len(resp.Data, 2, "props count")
-	s.Equal(resp.Data["key1"], "value1", "prop 1")
-	s.Equal(resp.Data["key2"], "value2", "prop 2")
+	s.Len(resp.Properties, 2, "props count")
+	s.Equal(resp.Properties["key1"], "value1", "prop 1")
+	s.Equal(resp.Properties["key2"], "value2", "prop 2")
 	s.Len(resp.FolderIds, 2, "folders count")
 	s.Equal(resp.FolderIds[0], f1.ID, "folder 1")
 	s.Equal(resp.FolderIds[1], f2.ID, "folder 2")
@@ -135,14 +135,14 @@ func (s *ApiTestSuite) TestBookmark_createBookmark() {
 
 func (s *ApiTestSuite) TestBookmark_updateBookmark() {
 	user := s.CreateUser()
-	data := map[string]interface{}{
+	properties := map[string]interface{}{
 		"key1": "value1",
 	}
-	bookmark := s.CreateBookmark(user, "bookmark", "", data)
+	bookmark := s.CreateBookmark(user, "bookmark", "", properties)
 
 	payload, err := json.Marshal(map[string]interface{}{
 		"name": "edited bookmark",
-		"data": map[string]interface{}{
+		"properties": map[string]interface{}{
 			"key1": "value1",
 			"key2": "value2",
 		},
@@ -375,13 +375,13 @@ func (s *ApiTestSuite) TestBookmark_deleteFolder() {
 func (s *ApiTestSuite) assertBookmark(expected *models.Bookmark, actual *Bookmark, idx int) {
 	s.Equal(expected.ID, actual.ID, "ID [%d]", idx)
 	s.Equal(expected.Name.String, actual.Name, "Name [%d]", idx)
-	s.Equal(expected.SourceType, actual.SourceType, "SourceType [%d]", idx)
-	s.Equal(expected.SourceUID, actual.SourceUID, "SourceUID [%d]", idx)
+	s.Equal(expected.SubjectType, actual.SubjectType, "SubjectType [%d]", idx)
+	s.Equal(expected.SubjectUID, actual.SubjectUID, "SubjectUID [%d]", idx)
 
-	if expected.Data.Valid {
-		var data map[string]interface{}
-		s.Require().NoError(expected.Data.Unmarshal(&data))
-		s.Equal(data, actual.Data, "Data [%d]", idx)
+	if expected.Properties.Valid {
+		var properties map[string]interface{}
+		s.Require().NoError(expected.Properties.Unmarshal(&properties))
+		s.Equal(properties, actual.Properties, "Properties [%d]", idx)
 	}
 
 	if expected.R != nil && expected.R.BookmarkFolders != nil {

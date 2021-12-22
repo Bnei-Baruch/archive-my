@@ -150,10 +150,10 @@ type GetBookmarksResponse struct {
 
 type AddBookmarksRequest struct {
 	NameRequest
-	SourceUID  string                 `json:"source_uid" binding:"required,max=8"`
-	SourceType string                 `json:"source_type" binding:"required"`
-	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
-	Data       map[string]interface{} `json:"data" binding:"omitempty"`
+	SourceUID   string                 `json:"source_uid" binding:"required,max=8"`
+	SubjectType string                 `json:"source_type" binding:"required"`
+	FolderIDs   []int64                `json:"folder_ids" binding:"omitempty"`
+	Properties  map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 type UpdateBookmarkRequest struct {
@@ -231,12 +231,12 @@ type Subscription struct {
 }
 
 type Bookmark struct {
-	ID         int64                  `json:"id"`
-	Name       string                 `json:"name"`
-	SourceUID  string                 `json:"source_uid"`
-	SourceType string                 `json:"source_type"`
-	Data       map[string]interface{} `json:"data,omitempty"`
-	FolderIds  []int64                `json:"folder_ids,omitempty"`
+	ID          int64                  `json:"id"`
+	Name        string                 `json:"name"`
+	SubjectUID  string                 `json:"source_uid"`
+	SubjectType string                 `json:"source_type"`
+	Properties  map[string]interface{} `json:"data,omitempty"`
+	FolderIds   []int64                `json:"folder_ids,omitempty"`
 }
 
 type Folder struct {

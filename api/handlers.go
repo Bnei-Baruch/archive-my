@@ -947,20 +947,20 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	bookmark := &models.Bookmark{
-		UserID:     user.ID,
-		SourceUID:  r.SourceUID,
-		SourceType: r.SourceType,
+		UserID:      user.ID,
+		SubjectUID:  r.SourceUID,
+		SubjectType: r.SubjectType,
 	}
 	if r.Name != "" {
 		bookmark.Name = null.StringFrom(r.Name)
 	}
-	if r.Data != nil {
-		data, err := json.Marshal(r.Data)
+	if r.Properties != nil {
+		data, err := json.Marshal(r.Properties)
 		if err != nil {
 			errs.NewBadRequestError(err).Abort(c)
 			return
 		}
-		bookmark.Data = null.JSONFrom(data)
+		bookmark.Properties = null.JSONFrom(data)
 	}
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
 		err := bookmark.Insert(tx, boil.Infer())
@@ -1349,17 +1349,17 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 
 func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 	resp := Bookmark{
-		ID:         bookmark.ID,
-		SourceUID:  bookmark.SourceUID,
-		SourceType: bookmark.SourceType,
+		ID:          bookmark.ID,
+		SubjectUID:  bookmark.SubjectUID,
+		SubjectType: bookmark.SubjectType,
 	}
 
 	if bookmark.Name.Valid {
 		resp.Name = bookmark.Name.String
 	}
 
-	if bookmark.Data.Valid {
-		utils.Must(bookmark.Data.Unmarshal(&resp.Data))
+	if bookmark.Properties.Valid {
+		utils.Must(bookmark.Properties.Unmarshal(&resp.Properties))
 	}
 
 	if bookmark.R != nil && bookmark.R.BookmarkFolders != nil {

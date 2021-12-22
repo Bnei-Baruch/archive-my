@@ -8,14 +8,7 @@ ALTER TABLE bookmarks
     RENAME COLUMN subject_type TO source_type;
 
 ALTER TABLE bookmark_folder
-    ADD COLUMN position INTEGER;
-
-ALTER TABLE bookmark_folder
-    DROP CONSTRAINT bookmark_folder_bookmark_id_uidx;
-
-ALTER TABLE bookmark_folder
-    ADD CONSTRAINT bookmark_folder_pkey PRIMARY KEY (folder_id, bookmark_id);
-
+    ALTER COLUMN position DROP NOT NULL;
 
 CREATE
     INDEX IF NOT EXISTS bookmark_id_folder_id_idx
