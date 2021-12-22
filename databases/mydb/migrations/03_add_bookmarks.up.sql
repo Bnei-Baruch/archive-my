@@ -28,7 +28,6 @@ CREATE TABLE bookmark_folder
 (
     bookmark_id BIGINT REFERENCES bookmarks ON DELETE CASCADE NOT NULL,
     folder_id   BIGINT REFERENCES folders ON DELETE CASCADE   NOT NULL,
-    position    INTEGER,
     PRIMARY KEY (folder_id, bookmark_id)
 );
 

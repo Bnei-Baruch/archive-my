@@ -882,7 +882,6 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-
 //Bookmark handlers
 func (a *App) handleGetBookmarks(c *gin.Context) {
 	var r GetBookmarksRequest
@@ -957,11 +956,11 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 	}
 	if r.Data != nil {
 		data, err := json.Marshal(r.Data)
-		bookmark.Data = null.JSONFrom(data)
 		if err != nil {
 			errs.NewBadRequestError(err).Abort(c)
 			return
 		}
+		bookmark.Data = null.JSONFrom(data)
 	}
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
 		err := bookmark.Insert(tx, boil.Infer())
@@ -1011,7 +1010,10 @@ func (a *App) handleUpdateBookmark(c *gin.Context) {
 	resp := &Bookmark{}
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		b, err := models.Bookmarks(models.BookmarkWhere.ID.EQ(id), qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
+		b, err := models.Bookmarks(
+			models.BookmarkWhere.ID.EQ(id),
+			models.BookmarkWhere.UserID.EQ(user.ID),
+			qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
 		if err != nil {
 			return pkgerr.WithStack(err)
 		}
@@ -1204,6 +1206,9 @@ func (a *App) handleUpdateFolder(c *gin.Context) {
 		if err != nil {
 			return pkgerr.WithStack(err)
 		}
+		if f.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
+		}
 		if r.Name != "" {
 			f.Name = null.StringFrom(r.Name)
 		}
@@ -1287,8 +1292,7 @@ func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 	if r.Query == "" {
 		return
 	}
-	q := fmt.Sprintf("%s ILIKE '%%%s%%'", column, r.Query)
-	*mods = append(*mods, qm.Where(q))
+	*mods = append(*mods, qm.Where(fmt.Sprintf("%s ILIKE ?", column), r.Query))
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {
