@@ -23,52 +23,52 @@ import (
 
 // Bookmark is an object representing the database table.
 type Bookmark struct {
-	ID         int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Name       null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
-	UserID     int64       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
-	SourceUID  string      `boil:"source_uid" json:"source_uid" toml:"source_uid" yaml:"source_uid"`
-	SourceType string      `boil:"source_type" json:"source_type" toml:"source_type" yaml:"source_type"`
-	Data       null.JSON   `boil:"data" json:"data,omitempty" toml:"data" yaml:"data,omitempty"`
-	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID          int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Name        null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
+	UserID      int64       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
+	SubjectUID  string      `boil:"subject_uid" json:"subject_uid" toml:"subject_uid" yaml:"subject_uid"`
+	SubjectType string      `boil:"subject_type" json:"subject_type" toml:"subject_type" yaml:"subject_type"`
+	Properties  null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
+	CreatedAt   time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *bookmarkR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L bookmarkL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var BookmarkColumns = struct {
-	ID         string
-	Name       string
-	UserID     string
-	SourceUID  string
-	SourceType string
-	Data       string
-	CreatedAt  string
+	ID          string
+	Name        string
+	UserID      string
+	SubjectUID  string
+	SubjectType string
+	Properties  string
+	CreatedAt   string
 }{
-	ID:         "id",
-	Name:       "name",
-	UserID:     "user_id",
-	SourceUID:  "source_uid",
-	SourceType: "source_type",
-	Data:       "data",
-	CreatedAt:  "created_at",
+	ID:          "id",
+	Name:        "name",
+	UserID:      "user_id",
+	SubjectUID:  "subject_uid",
+	SubjectType: "subject_type",
+	Properties:  "properties",
+	CreatedAt:   "created_at",
 }
 
 var BookmarkTableColumns = struct {
-	ID         string
-	Name       string
-	UserID     string
-	SourceUID  string
-	SourceType string
-	Data       string
-	CreatedAt  string
+	ID          string
+	Name        string
+	UserID      string
+	SubjectUID  string
+	SubjectType string
+	Properties  string
+	CreatedAt   string
 }{
-	ID:         "bookmarks.id",
-	Name:       "bookmarks.name",
-	UserID:     "bookmarks.user_id",
-	SourceUID:  "bookmarks.source_uid",
-	SourceType: "bookmarks.source_type",
-	Data:       "bookmarks.data",
-	CreatedAt:  "bookmarks.created_at",
+	ID:          "bookmarks.id",
+	Name:        "bookmarks.name",
+	UserID:      "bookmarks.user_id",
+	SubjectUID:  "bookmarks.subject_uid",
+	SubjectType: "bookmarks.subject_type",
+	Properties:  "bookmarks.properties",
+	CreatedAt:   "bookmarks.created_at",
 }
 
 // Generated where
@@ -166,21 +166,21 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 }
 
 var BookmarkWhere = struct {
-	ID         whereHelperint64
-	Name       whereHelpernull_String
-	UserID     whereHelperint64
-	SourceUID  whereHelperstring
-	SourceType whereHelperstring
-	Data       whereHelpernull_JSON
-	CreatedAt  whereHelpertime_Time
+	ID          whereHelperint64
+	Name        whereHelpernull_String
+	UserID      whereHelperint64
+	SubjectUID  whereHelperstring
+	SubjectType whereHelperstring
+	Properties  whereHelpernull_JSON
+	CreatedAt   whereHelpertime_Time
 }{
-	ID:         whereHelperint64{field: "\"bookmarks\".\"id\""},
-	Name:       whereHelpernull_String{field: "\"bookmarks\".\"name\""},
-	UserID:     whereHelperint64{field: "\"bookmarks\".\"user_id\""},
-	SourceUID:  whereHelperstring{field: "\"bookmarks\".\"source_uid\""},
-	SourceType: whereHelperstring{field: "\"bookmarks\".\"source_type\""},
-	Data:       whereHelpernull_JSON{field: "\"bookmarks\".\"data\""},
-	CreatedAt:  whereHelpertime_Time{field: "\"bookmarks\".\"created_at\""},
+	ID:          whereHelperint64{field: "\"bookmarks\".\"id\""},
+	Name:        whereHelpernull_String{field: "\"bookmarks\".\"name\""},
+	UserID:      whereHelperint64{field: "\"bookmarks\".\"user_id\""},
+	SubjectUID:  whereHelperstring{field: "\"bookmarks\".\"subject_uid\""},
+	SubjectType: whereHelperstring{field: "\"bookmarks\".\"subject_type\""},
+	Properties:  whereHelpernull_JSON{field: "\"bookmarks\".\"properties\""},
+	CreatedAt:   whereHelpertime_Time{field: "\"bookmarks\".\"created_at\""},
 }
 
 // BookmarkRels is where relationship names are stored.
@@ -207,8 +207,8 @@ func (*bookmarkR) NewStruct() *bookmarkR {
 type bookmarkL struct{}
 
 var (
-	bookmarkAllColumns            = []string{"id", "name", "user_id", "source_uid", "source_type", "data", "created_at"}
-	bookmarkColumnsWithoutDefault = []string{"name", "user_id", "source_uid", "source_type", "data"}
+	bookmarkAllColumns            = []string{"id", "name", "user_id", "subject_uid", "subject_type", "properties", "created_at"}
+	bookmarkColumnsWithoutDefault = []string{"name", "user_id", "subject_uid", "subject_type", "properties"}
 	bookmarkColumnsWithDefault    = []string{"id", "created_at"}
 	bookmarkPrimaryKeyColumns     = []string{"id"}
 )

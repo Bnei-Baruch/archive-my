@@ -111,21 +111,21 @@ func (s *ModelsSuite) CreateReaction(user *models.User, kind, sType, sUID string
 	return reaction
 }
 
-func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data map[string]interface{}, public bool) *models.Bookmark {
+func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data map[string]interface{}) *models.Bookmark {
 	bookmark := &models.Bookmark{
-		Name:       null.StringFrom(name),
-		UserID:     user.ID,
-		SourceUID:  utils.GenerateUID(8),
-		SourceType: sType,
+		Name:        null.StringFrom(name),
+		UserID:      user.ID,
+		SubjectUID:  utils.GenerateUID(8),
+		SubjectType: sType,
 	}
 	if sType != "" {
-		bookmark.SourceType = "TEST_CONTENT_TYPE"
+		bookmark.SubjectType = "TEST_CONTENT_TYPE"
 	}
 
 	if data != nil {
 		dataJson, err := json.Marshal(data)
 		s.Require().NoError(err)
-		bookmark.Data = null.JSONFrom(dataJson)
+		bookmark.Properties = null.JSONFrom(dataJson)
 	}
 
 	s.Require().NoError(bookmark.Insert(s.MyDB.DB, boil.Infer()))

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -23,9 +22,9 @@ import (
 
 // BookmarkFolder is an object representing the database table.
 type BookmarkFolder struct {
-	BookmarkID int64    `boil:"bookmark_id" json:"bookmark_id" toml:"bookmark_id" yaml:"bookmark_id"`
-	FolderID   int64    `boil:"folder_id" json:"folder_id" toml:"folder_id" yaml:"folder_id"`
-	Position   null.Int `boil:"position" json:"position,omitempty" toml:"position" yaml:"position,omitempty"`
+	BookmarkID int64 `boil:"bookmark_id" json:"bookmark_id" toml:"bookmark_id" yaml:"bookmark_id"`
+	FolderID   int64 `boil:"folder_id" json:"folder_id" toml:"folder_id" yaml:"folder_id"`
+	Position   int   `boil:"position" json:"position" toml:"position" yaml:"position"`
 
 	R *bookmarkFolderR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L bookmarkFolderL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -76,38 +75,14 @@ func (w whereHelperint64) NIN(slice []int64) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
-type whereHelpernull_Int struct{ field string }
-
-func (w whereHelpernull_Int) EQ(x null.Int) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_Int) NEQ(x null.Int) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Int) LT(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Int) LTE(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Int) GT(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Int) GTE(x null.Int) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
-func (w whereHelpernull_Int) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Int) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-
 var BookmarkFolderWhere = struct {
 	BookmarkID whereHelperint64
 	FolderID   whereHelperint64
-	Position   whereHelpernull_Int
+	Position   whereHelperint
 }{
 	BookmarkID: whereHelperint64{field: "\"bookmark_folder\".\"bookmark_id\""},
 	FolderID:   whereHelperint64{field: "\"bookmark_folder\".\"folder_id\""},
-	Position:   whereHelpernull_Int{field: "\"bookmark_folder\".\"position\""},
+	Position:   whereHelperint{field: "\"bookmark_folder\".\"position\""},
 }
 
 // BookmarkFolderRels is where relationship names are stored.

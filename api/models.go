@@ -277,13 +277,12 @@ type Subscription struct {
 }
 
 type Bookmark struct {
-	ID         int64                  `json:"id"`
-	UID        string                 `json:"uid,omitempty,len=8"`
-	Name       string                 `json:"name"`
-	SourceUID  string                 `json:"source_uid"`
-	SourceType string                 `json:"source_type"`
-	Data       map[string]interface{} `json:"data,omitempty"`
-	FolderIds  []int64                `json:"folder_ids,omitempty"`
+	ID          int64                  `json:"id"`
+	Name        string                 `json:"name"`
+	SubjectUID  string                 `json:"subject_uid"`
+	SubjectType string                 `json:"subject_type"`
+	Properties  map[string]interface{} `json:"data,omitempty"`
+	FolderIds   []int64                `json:"folder_ids,omitempty"`
 }
 
 type Folder struct {

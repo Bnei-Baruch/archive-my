@@ -948,20 +948,20 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 	db := c.MustGet("MY_DB").(*sql.DB)
 
 	bookmark := &models.Bookmark{
-		UserID:     user.ID,
-		SourceUID:  r.SourceUID,
-		SourceType: r.SourceType,
+		UserID:      user.ID,
+		SubjectUID:  r.SubjectUID,
+		SubjectType: r.SubjectType,
 	}
 	if r.Name != "" {
 		bookmark.Name = null.StringFrom(r.Name)
 	}
-	if r.Data != nil {
-		data, err := json.Marshal(r.Data)
-		bookmark.Data = null.JSONFrom(data)
+	if r.Properties != nil {
+		data, err := json.Marshal(r.Properties)
 		if err != nil {
 			errs.NewBadRequestError(err).Abort(c)
 			return
 		}
+		bookmark.Properties = null.JSONFrom(data)
 	}
 
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
@@ -971,11 +971,25 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 		}
 		if r.FolderIDs != nil {
 			bbfs := make([]*models.BookmarkFolder, len(r.FolderIDs))
+
 			for i, id := range r.FolderIDs {
+				var maxPosition null.Int
+				err = models.NewQuery(
+					qm.Select(fmt.Sprintf("MAX(%s)", models.BookmarkFolderColumns.Position)),
+					qm.From(models.TableNames.BookmarkFolder),
+					models.BookmarkFolderWhere.FolderID.EQ(id),
+				).QueryRow(tx).Scan(&maxPosition)
+				if err != nil && err != sql.ErrNoRows {
+					return pkgerr.Wrap(err, "find max position of playlist items from db")
+				}
+
 				bbfs[i] = &models.BookmarkFolder{
-					FolderID: id,
+					BookmarkID: bookmark.ID,
+					FolderID:   id,
+					Position:   maxPosition.Int + 1,
 				}
 			}
+
 			if err := bookmark.AddBookmarkFolders(tx, true, bbfs...); err != nil {
 				return pkgerr.WithStack(err)
 			}
@@ -1012,7 +1026,10 @@ func (a *App) handleUpdateBookmark(c *gin.Context) {
 	resp := &Bookmark{}
 	db := c.MustGet("MY_DB").(*sql.DB)
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		b, err := models.Bookmarks(models.BookmarkWhere.ID.EQ(id), qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
+		b, err := models.Bookmarks(
+			models.BookmarkWhere.ID.EQ(id),
+			models.BookmarkWhere.UserID.EQ(user.ID),
+			qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
 		if err != nil {
 			return pkgerr.WithStack(err)
 		}
@@ -1204,6 +1221,9 @@ func (a *App) handleUpdateFolder(c *gin.Context) {
 		f, err := models.FindFolder(tx, id)
 		if err != nil {
 			return pkgerr.WithStack(err)
+		}
+		if f.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
 		}
 		if r.Name != "" {
 			f.Name = null.StringFrom(r.Name)
@@ -1525,8 +1545,7 @@ func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 	if r.Query == "" {
 		return
 	}
-	q := fmt.Sprintf("%s ILIKE '%%%s%%'", column, r.Query)
-	*mods = append(*mods, qm.Where(q))
+	*mods = append(*mods, qm.Where(fmt.Sprintf("%s ILIKE ?", column), r.Query))
 }
 
 func appendSourceFilterMods(mods *[]qm.QueryMod, r SourceFilter) {
@@ -1591,17 +1610,17 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 
 func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 	resp := Bookmark{
-		ID:         bookmark.ID,
-		SourceUID:  bookmark.SourceUID,
-		SourceType: bookmark.SourceType,
+		ID:          bookmark.ID,
+		SubjectUID:  bookmark.SubjectUID,
+		SubjectType: bookmark.SubjectType,
 	}
 
 	if bookmark.Name.Valid {
 		resp.Name = bookmark.Name.String
 	}
 
-	if bookmark.Data.Valid {
-		utils.Must(bookmark.Data.Unmarshal(&resp.Data))
+	if bookmark.Properties.Valid {
+		utils.Must(bookmark.Properties.Unmarshal(&resp.Properties))
 	}
 
 	if bookmark.R != nil && bookmark.R.BookmarkFolders != nil {
