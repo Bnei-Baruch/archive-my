@@ -898,7 +898,39 @@ func (a *App) handleGetBookmarks(c *gin.Context) {
 	db := c.MustGet("MY_DB").(*sql.DB)
 	mods := []qm.QueryMod{models.BookmarkWhere.UserID.EQ(user.ID)}
 
-	a.respBookmarks(c, db, mods, r)
+	total, err := models.Bookmarks(mods...).Count(db)
+	mods = append(mods,
+		qm.Load(models.BookmarkRels.BookmarkFolders),
+	)
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(GetBookmarksResponse), nil)
+		return
+	}
+	appendQueryFilter(&mods, r.QueryFilter, "name")
+	if len(r.FolderIDsFilter) > 0 {
+		mods = append(mods,
+			qm.InnerJoin("bookmark_folder bf ON id = bf.bookmark_id"),
+			qm.WhereIn("bf.folder_id in ?", utils.ConvertArgsInt64(r.FolderIDsFilter)...),
+		)
+	}
+
+	bookmarks, err := models.Bookmarks(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Bookmark, len(bookmarks))
+	for i, b := range bookmarks {
+		items[i] = makeBookmarkDTO(b)
+	}
+
+	resp := GetBookmarksResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        items,
+	}
+	concludeRequest(c, resp, err)
 }
 
 func (a *App) handleCreateBookmark(c *gin.Context) {
@@ -931,17 +963,9 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 			return
 		}
 	}
-	if r.Public {
-		bookmark.Public = r.Public
-	}
-	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		uid, err := domain.GetFreeUID(tx, new(domain.PlaylistUIDChecker))
-		if err != nil {
-			return pkgerr.Wrap(err, "get free UID")
-		}
-		bookmark.UID = uid
 
-		err = bookmark.Insert(tx, boil.Infer())
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		err := bookmark.Insert(tx, boil.Infer())
 		if err != nil {
 			return pkgerr.WithStack(err)
 		}
@@ -953,18 +977,6 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 				}
 			}
 			if err := bookmark.AddBookmarkFolders(tx, true, bbfs...); err != nil {
-				return pkgerr.WithStack(err)
-			}
-		}
-
-		if r.TagsUIDs != nil {
-			bts := make([]*models.BookmarkTag, len(r.TagsUIDs))
-			for i, uid := range r.TagsUIDs {
-				bts[i] = &models.BookmarkTag{
-					TagUID: uid,
-				}
-			}
-			if err := bookmark.AddBookmarkTags(tx, true, bts...); err != nil {
 				return pkgerr.WithStack(err)
 			}
 		}
@@ -1041,18 +1053,6 @@ func (a *App) handleUpdateBookmark(c *gin.Context) {
 			}
 		}
 
-		if r.TagsUIDs != nil {
-			bts := make([]*models.BookmarkTag, len(r.TagsUIDs))
-			for i, uid := range r.TagsUIDs {
-				bts[i] = &models.BookmarkTag{
-					TagUID: uid,
-				}
-			}
-			if err := b.AddBookmarkTags(tx, true, bts...); err != nil {
-				return pkgerr.WithStack(err)
-			}
-		}
-
 		if _, err := b.Update(tx, boil.Infer()); err != nil {
 			return err
 		}
@@ -1099,56 +1099,6 @@ func (a *App) handleDeleteBookmark(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-func (a *App) handleGetPublicBookmarks(c *gin.Context) {
-	var r GetBookmarksRequest
-	if c.Bind(&r) != nil {
-		return
-	}
-
-	db := c.MustGet("MY_DB").(*sql.DB)
-	mods := []qm.QueryMod{models.BookmarkWhere.Public.EQ(true)}
-
-	a.respBookmarks(c, db, mods, r)
-}
-
-func (a *App) respBookmarks(c *gin.Context, db *sql.DB, mods []qm.QueryMod, r GetBookmarksRequest) {
-
-	total, err := models.Bookmarks(mods...).Count(db)
-	mods = append(mods,
-		qm.Load(models.BookmarkRels.BookmarkFolders),
-		qm.Load(models.BookmarkRels.BookmarkTags),
-	)
-	_, offset := appendListMods(&mods, r.ListRequest)
-	if int64(offset) >= total {
-		concludeRequest(c, new(GetBookmarksResponse), nil)
-		return
-	}
-	appendQueryFilter(&mods, r.QueryFilter, "name")
-	if len(r.FolderIDsFilter) > 0 {
-		mods = append(mods,
-			qm.InnerJoin("bookmark_folder bf ON id = bf.bookmark_id"),
-			qm.WhereIn("bf.folder_id in ?", utils.ConvertArgsInt64(r.FolderIDsFilter)...),
-		)
-	}
-
-	bookmarks, err := models.Bookmarks(mods...).All(db)
-	if err != nil {
-		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
-		return
-	}
-
-	items := make([]*Bookmark, len(bookmarks))
-	for i, b := range bookmarks {
-		items[i] = makeBookmarkDTO(b)
-	}
-
-	resp := GetBookmarksResponse{
-		ListResponse: ListResponse{Total: total},
-		Items:        items,
-	}
-	concludeRequest(c, resp, err)
-}
-
 //Folder handlers
 func (a *App) handleGetFolders(c *gin.Context) {
 	var r GetFoldersRequest
@@ -1186,7 +1136,7 @@ func (a *App) handleGetFolders(c *gin.Context) {
 
 	items := make([]*Folder, len(folders))
 	for i, f := range folders {
-		items[i] = makeFoldersDTO(f)
+		items[i] = makeFolderDTO(f)
 	}
 
 	resp := GetFoldersResponse{
@@ -1226,7 +1176,7 @@ func (a *App) handleCreateFolder(c *gin.Context) {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
 	}
-	resp := makeFoldersDTO(folder)
+	resp := makeFolderDTO(folder)
 	concludeRequest(c, resp, err)
 }
 
@@ -1259,7 +1209,7 @@ func (a *App) handleUpdateFolder(c *gin.Context) {
 			f.Name = null.StringFrom(r.Name)
 		}
 		_, err = f.Update(tx, boil.Infer())
-		resp = makeFoldersDTO(f)
+		resp = makeFolderDTO(f)
 		return err
 	})
 
@@ -1297,6 +1247,210 @@ func (a *App) handleDeleteFolder(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
+//Label handlers
+func (a *App) handleGetLabels(c *gin.Context) {
+	var r GetLabelsRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+
+	mods := []qm.QueryMod{models.LabelWhere.UserID.EQ(user.ID)}
+	a.labelResponse(c, db, mods, r)
+}
+
+func (a *App) handleCreateLabel(c *gin.Context) {
+	var r AddLabelRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	label := &models.Label{
+		UserID:     user.ID,
+		SourceUID:  r.SourceUID,
+		SourceType: r.SourceType,
+	}
+	if r.Name != "" {
+		label.Name = null.StringFrom(r.Name)
+	}
+
+	if r.Data != nil {
+		data, err := json.Marshal(r.Data)
+		label.Data = null.JSONFrom(data)
+		if err != nil {
+			errs.NewBadRequestError(err).Abort(c)
+			return
+		}
+	}
+
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		uid, err := domain.GetFreeUID(tx, new(domain.LabelUIDChecker))
+		if err != nil {
+			return pkgerr.Wrap(err, "get free UID")
+		}
+		label.UID = uid
+
+		err = label.Insert(tx, boil.Infer())
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+
+		if r.TagsUIDs != nil {
+			lts := make([]*models.LabelTag, len(r.TagsUIDs))
+			for i, uid := range r.TagsUIDs {
+				lts[i] = &models.LabelTag{
+					TagUID: uid,
+				}
+			}
+			if err := label.AddLabelTags(tx, true, lts...); err != nil {
+				return pkgerr.WithStack(err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+	resp := makeLabelDTO(label)
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleUpdateLabel(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	var r UpdateLabelRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	resp := &Label{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		label, err := models.Labels(models.LabelWhere.ID.EQ(id), qm.Load(models.LabelRels.LabelTags)).One(tx)
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+		if r.Name != "" {
+			label.Name = null.StringFrom(r.Name)
+		}
+
+		if r.TagsUIDs != nil {
+			if len(r.TagsUIDs) == 0 {
+				_, err = label.R.LabelTags.DeleteAll(tx)
+				if err != nil {
+					return err
+				}
+			} else {
+				forAdd, forDel := diffTags(r.TagsUIDs, label.R.LabelTags)
+
+				ltags := make([]*models.LabelTag, len(forAdd))
+				for i, uid := range forAdd {
+					ltags[i] = &models.LabelTag{
+						TagUID: uid,
+					}
+				}
+
+				if len(forAdd) > 0 {
+					if err = label.AddLabelTags(tx, true, ltags...); err != nil {
+						return err
+					}
+				}
+
+				if len(forDel) > 0 {
+					_, err := models.BookmarkFolders(
+						models.LabelTagWhere.TagUID.IN(forDel),
+						models.LabelTagWhere.LabelID.EQ(label.ID),
+					).DeleteAll(tx)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		if _, err := label.Update(tx, boil.Infer()); err != nil {
+			return err
+		}
+
+		reloaded, err := models.Labels(models.LabelWhere.ID.EQ(id), qm.Load(models.LabelRels.LabelTags)).One(tx)
+		if err != nil {
+			return err
+		}
+		*resp = *makeLabelDTO(reloaded)
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleDeleteLabel(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		l, err := models.FindLabel(tx, id)
+
+		if err == sql.ErrNoRows {
+			return nil
+		}
+
+		if err != nil {
+			return pkgerr.Wrap(err, "fetch label from db")
+		}
+		_, err = l.Delete(tx)
+		return err
+	})
+
+	concludeRequest(c, nil, err)
+}
+
+func (a *App) handleGetPublicLabels(c *gin.Context) {
+	var r GetLabelsRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	mods := []qm.QueryMod{models.LabelWhere.Accepted.NEQ(null.BoolFrom(false))}
+
+	a.labelResponse(c, db, mods, r)
+}
+
 //help functions
 
 func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
@@ -1306,6 +1460,39 @@ func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
 	}
 	return nil
 
+}
+
+func (a *App) labelResponse(c *gin.Context, db *sql.DB, mods []qm.QueryMod, r GetLabelsRequest) {
+
+	total, err := models.Labels(mods...).Count(db)
+
+	mods = append(mods,
+		qm.Load(models.LabelRels.LabelTags),
+	)
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(GetLabelsResponse), nil)
+		return
+	}
+
+	appendSourceFilterMods(&mods, r.SourceFilter)
+
+	labels, err := models.Labels(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Label, len(labels))
+	for i, f := range labels {
+		items[i] = makeLabelDTO(f)
+	}
+
+	resp := GetLabelsResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        items,
+	}
+	concludeRequest(c, resp, err)
 }
 
 func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
@@ -1340,6 +1527,14 @@ func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 	}
 	q := fmt.Sprintf("%s ILIKE '%%%s%%'", column, r.Query)
 	*mods = append(*mods, qm.Where(q))
+}
+
+func appendSourceFilterMods(mods *[]qm.QueryMod, r SourceFilter) {
+	if r.SourceType == "" || r.SourceUID == "" {
+		return
+	}
+
+	*mods = append(*mods, qm.Where("source_uid = ? AND source_type = ?"))
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {
@@ -1397,11 +1592,8 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 	resp := Bookmark{
 		ID:         bookmark.ID,
-		UID:        bookmark.UID,
 		SourceUID:  bookmark.SourceUID,
 		SourceType: bookmark.SourceType,
-		Public:     bookmark.Public,
-		Accepted:   bookmark.Accepted,
 	}
 
 	if bookmark.Name.Valid {
@@ -1419,17 +1611,10 @@ func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 		}
 	}
 
-	if bookmark.R != nil && bookmark.R.BookmarkTags != nil {
-		resp.TagUIds = make([]string, len(bookmark.R.BookmarkTags))
-		for i, bt := range bookmark.R.BookmarkTags {
-			resp.TagUIds[i] = bt.TagUID
-		}
-	}
-
 	return &resp
 }
 
-func makeFoldersDTO(folder *models.Folder) *Folder {
+func makeFolderDTO(folder *models.Folder) *Folder {
 	resp := Folder{
 		ID: folder.ID,
 	}
@@ -1442,6 +1627,33 @@ func makeFoldersDTO(folder *models.Folder) *Folder {
 		resp.BookmarkIds = make([]int64, len(folder.R.BookmarkFolders))
 		for i, bbf := range folder.R.BookmarkFolders {
 			resp.BookmarkIds[i] = bbf.BookmarkID
+		}
+	}
+
+	return &resp
+}
+
+func makeLabelDTO(label *models.Label) *Label {
+	resp := Label{
+		ID:         label.ID,
+		UID:        label.UID,
+		SourceUID:  label.SourceUID,
+		SourceType: label.SourceType,
+		Accepted:   label.Accepted,
+	}
+
+	if label.Name.Valid {
+		resp.Name = label.Name.String
+	}
+
+	if label.Data.Valid {
+		utils.Must(label.Data.Unmarshal(&resp.Data))
+	}
+
+	if label.R != nil && label.R.LabelTags != nil {
+		resp.TagUIds = make([]string, len(label.R.LabelTags))
+		for i, lt := range label.R.LabelTags {
+			resp.TagUIds[i] = lt.TagUID
 		}
 	}
 
@@ -1461,6 +1673,34 @@ func diffBFs(reqIDs []int64, bfFromDB []*models.BookmarkFolder) ([]int64, []int6
 	}
 
 	for _, x := range reqIDs {
+		if _, ok := mDB[x]; !ok {
+			forAdd = append(forAdd, x)
+			continue
+		}
+		mDB[x] = true
+	}
+
+	for x, ok := range mDB {
+		if !ok {
+			forDel = append(forDel, x)
+		}
+	}
+	return forAdd, forDel
+}
+
+func diffTags(reqUIDs []string, bfFromDB []*models.LabelTag) ([]string, []string) {
+	if len(bfFromDB) == 0 {
+		return reqUIDs, nil
+	}
+
+	forDel := make([]string, 0)
+	forAdd := make([]string, 0)
+	mDB := make(map[string]bool, len(bfFromDB))
+	for _, x := range bfFromDB {
+		mDB[x.TagUID] = false
+	}
+
+	for _, x := range reqUIDs {
 		if _, ok := mDB[x]; !ok {
 			forAdd = append(forAdd, x)
 			continue

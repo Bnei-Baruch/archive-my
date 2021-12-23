@@ -16,37 +16,37 @@ import (
 	"github.com/Bnei-Baruch/archive-my/pkg/sqlutil"
 )
 
-func (a *App) handleGetAllPublicBookmarks(c *gin.Context) {
-	var r GetBookmarksRequest
+func (a *App) handleGetAllLabels(c *gin.Context) {
+	var r GetLabelsRequest
 	if c.Bind(&r) != nil {
 		return
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
-	mods := []qm.QueryMod{models.BookmarkWhere.Public.EQ(true)}
+	mods := []qm.QueryMod{}
 
-	if r.StatusFilter != "" {
+	if r.Accepted != "" {
 		s := null.Bool{
 			Bool:  false,
 			Valid: false,
 		}
-		if r.StatusFilter == "accepted" {
+		if r.Accepted == "accepted" {
 			s.Bool = true
 			s.Valid = true
 		}
-		if r.StatusFilter == "declined" {
+		if r.Accepted == "declined" {
 			s.Bool = false
 			s.Valid = true
 		}
-		mods = append(mods, models.BookmarkWhere.Accepted.EQ(s))
+		mods = append(mods, models.LabelWhere.Accepted.EQ(s))
 	}
 
-	a.respBookmarks(c, db, mods, r)
+	a.labelResponse(c, db, mods, r)
 }
 
 //Change Bookmark accept handlers
-func (a *App) handleBookmarkModeration(c *gin.Context) {
-	var r BookmarkModerationRequest
+func (a *App) handleLabelModeration(c *gin.Context) {
+	var r LabelModerationRequest
 	if c.Bind(&r) != nil {
 		return
 	}
@@ -58,19 +58,19 @@ func (a *App) handleBookmarkModeration(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 
-	var resp *Bookmark
+	var resp *Label
 	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
-		b, err := models.FindBookmark(db, id)
+		b, err := models.FindLabel(db, id)
 		if err != nil {
 			return errs.NewNotFoundError(err)
 		}
 
 		b.Accepted = r.Accepted
 
-		if _, err := b.Update(tx, boil.Whitelist(models.BookmarkColumns.Accepted)); err != nil {
+		if _, err := b.Update(tx, boil.Whitelist(models.LabelColumns.Accepted)); err != nil {
 			return errs.NewNotFoundError(err)
 		}
-		resp = makeBookmarkDTO(b)
+		resp = makeLabelDTO(b)
 		return nil
 	})
 	concludeRequest(c, resp, err)

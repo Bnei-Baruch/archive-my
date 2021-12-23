@@ -21,6 +21,11 @@ type NameRequest struct {
 	Name string `json:"name" binding:"omitempty,max=256"`
 }
 
+type SourceRequest struct {
+	SourceUID  string `json:"source_uid" binding:"required,max=8"`
+	SourceType string `json:"source_type" binding:"required"`
+}
+
 //Filters
 type IDsFilter struct {
 	IDs []int64 `json:"ids" form:"ids" binding:"omitempty"`
@@ -32,6 +37,11 @@ type UIDsFilter struct {
 
 type QueryFilter struct {
 	Query string `json:"query" form:"query" binding:"omitempty"`
+}
+
+type SourceFilter struct {
+	SourceUID  string `json:"source_uid" form:"source_uid" binding:"omitempty"`
+	SourceType string `json:"source_type" form:"source_type" binding:"omitempty"`
 }
 
 //Playlist
@@ -151,22 +161,20 @@ type GetBookmarksResponse struct {
 
 type AddBookmarksRequest struct {
 	NameRequest
-	SourceUID  string                 `json:"source_uid" binding:"required,max=8"`
-	SourceType string                 `json:"source_type" binding:"required"`
-	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
-	Public     bool                   `json:"public" binding:"omitempty"`
-	Data       map[string]interface{} `json:"data" binding:"omitempty"`
-	TagsUIDs   []string               `json:"tag_uids" binding:"omitempty"`
+	SourceRequest
+	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
+	Public    bool                   `json:"public" binding:"omitempty"`
+	Data      map[string]interface{} `json:"data" binding:"omitempty"`
+	TagsUIDs  []string               `json:"tag_uids" binding:"omitempty"`
 }
 
 type UpdateBookmarkRequest struct {
 	NameRequest
 	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
 	Data      map[string]interface{} `json:"data" binding:"omitempty"`
-	TagsUIDs  []string               `json:"tag_uids" binding:"omitempty"`
 }
 
-type BookmarkModerationRequest struct {
+type LabelModerationRequest struct {
 	Accepted null.Bool `json:"accepted" binding:"omitempty"`
 }
 
@@ -190,6 +198,36 @@ type UpdateFolderRequest struct {
 	NameRequest
 }
 
+//Label
+type GetLabelsRequest struct {
+	ListRequest
+	SourceFilter
+	Accepted string `json:"accepted" binding:"omitempty"`
+}
+
+type GetLabelsResponse struct {
+	ListResponse
+	Items []*Label `json:"items"`
+}
+
+type AddLabelRequest struct {
+	NameRequest
+	SourceRequest
+	Data     map[string]interface{} `json:"data" binding:"omitempty"`
+	TagsUIDs []string               `json:"tag_uids" binding:"omitempty"`
+}
+
+type UpdateLabelRequest struct {
+	NameRequest
+	Data     map[string]interface{} `json:"data" binding:"omitempty"`
+	TagsUIDs []string               `json:"tag_uids" binding:"omitempty"`
+}
+
+/*
+type LabelModerationRequest struct {
+	Accepted null.Bool `json:"accepted" binding:"omitempty"`
+}
+*/
 // DTOs
 
 type Playlist struct {
@@ -240,15 +278,12 @@ type Subscription struct {
 
 type Bookmark struct {
 	ID         int64                  `json:"id"`
-	UID        string                 `json:"uid",  binding:"omitempty,len=8"`
+	UID        string                 `json:"uid,omitempty,len=8"`
 	Name       string                 `json:"name"`
 	SourceUID  string                 `json:"source_uid"`
 	SourceType string                 `json:"source_type"`
 	Data       map[string]interface{} `json:"data,omitempty"`
 	FolderIds  []int64                `json:"folder_ids,omitempty"`
-	Public     bool                   `json:"public,omitempty"`
-	Accepted   null.Bool              `json:"accepted,omitempty"`
-	TagUIds    []string               `json:"tag_uids,omitempty"`
 }
 
 type Folder struct {
@@ -256,4 +291,16 @@ type Folder struct {
 	Name        string    `json:"name"`
 	CreatedAt   time.Time `json:"created_at"`
 	BookmarkIds []int64   `json:"bookmark_ids,omitempty"`
+}
+
+type Label struct {
+	ID         int64                  `json:"id"`
+	UID        string                 `json:"uid,omitempty,len=8"`
+	Name       string                 `json:"name"`
+	SourceUID  string                 `json:"source_uid"`
+	SourceType string                 `json:"source_type"`
+	TagUIds    []string               `json:"tag_uids"`
+	Data       map[string]interface{} `json:"data,omitempty"`
+	Accepted   null.Bool              `json:"accepted,omitempty"`
+	IsMy       bool                   `json:"is_my,omitempty"`
 }

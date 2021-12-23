@@ -98,14 +98,15 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	a.Router.GET("/metrics", a.MakePrometheusHandler())
 
 	a.Router.GET("/reaction_count", a.handleReactionCount)
+	a.Router.GET("/labels", a.handleGetPublicLabels)
 	// TODO: public endpoint for public playlists (get by UID) string all internal IDs
 
 	auth := middleware.Auth{}
 
 	admin := a.Router.Group("/admin")
 	admin.Use(auth.AuthenticationMiddleware(verifier), auth.CheckModeratorMiddleware())
-	admin.GET("/bookmarks", a.handleGetAllPublicBookmarks)
-	admin.PUT("/bookmarks/:id", a.handleBookmarkModeration)
+	admin.GET("/labels", a.handleGetAllLabels)
+	admin.PUT("/labels/:id", a.handleLabelModeration)
 
 	rest := a.Router.Group("/rest")
 	rest.Use(auth.AuthenticationMiddleware(verifier))
@@ -125,13 +126,15 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest.GET("/reactions", a.handleGetReactions)
 	rest.POST("/reactions", a.handleAddReactions)
 	rest.DELETE("/reactions", a.handleRemoveReactions)
+
 	rest.GET("/subscriptions", a.handleGetSubscriptions)
 	rest.POST("/subscriptions", a.handleSubscribe)
 	rest.DELETE("/subscriptions/:id", a.handleUnsubscribe)
+
 	rest.GET("/history", a.handleGetHistory)
 	rest.DELETE("/history/:id", a.handleDeleteHistory)
+
 	rest.GET("/bookmarks", a.handleGetBookmarks)
-	rest.GET("/public_bookmarks", a.handleGetAllPublicBookmarks)
 	rest.POST("/bookmarks", a.handleCreateBookmark)
 	rest.PUT("/bookmarks/:id", a.handleUpdateBookmark)
 	rest.DELETE("/bookmarks/:id", a.handleDeleteBookmark)
@@ -141,4 +144,8 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest.PUT("/folders/:id", a.handleUpdateFolder)
 	rest.DELETE("/folders/:id", a.handleDeleteFolder)
 
+	rest.GET("/labels", a.handleGetLabels)
+	rest.POST("/labels", a.handleCreateLabel)
+	rest.PUT("/labels/:id", a.handleUpdateLabel)
+	rest.DELETE("/labels/:id", a.handleDeleteLabel)
 }

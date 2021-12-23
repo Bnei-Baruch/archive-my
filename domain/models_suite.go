@@ -115,10 +115,8 @@ func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data
 	bookmark := &models.Bookmark{
 		Name:       null.StringFrom(name),
 		UserID:     user.ID,
-		UID:        utils.GenerateUID(8),
 		SourceUID:  utils.GenerateUID(8),
 		SourceType: sType,
-		Public:     public,
 	}
 	if sType != "" {
 		bookmark.SourceType = "TEST_CONTENT_TYPE"
