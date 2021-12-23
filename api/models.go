@@ -150,7 +150,7 @@ type GetBookmarksResponse struct {
 
 type AddBookmarksRequest struct {
 	NameRequest
-	SourceUID   string                 `json:"subject_uid" binding:"required,max=8"`
+	SubjectUID  string                 `json:"subject_uid" binding:"required,max=8"`
 	SubjectType string                 `json:"subject_type" binding:"required"`
 	FolderIDs   []int64                `json:"folder_ids" binding:"omitempty"`
 	Properties  map[string]interface{} `json:"properties" binding:"omitempty"`

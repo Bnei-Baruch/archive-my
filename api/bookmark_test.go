@@ -109,10 +109,10 @@ func (s *ApiTestSuite) TestBookmark_createBookmark() {
 
 	var resp Bookmark
 	payload, err := json.Marshal(map[string]interface{}{
-		"name":        bName,
-		"source_uid":  "12345678",
-		"source_type": "TEST",
-		"folder_ids":  []int64{f1.ID, f2.ID},
+		"name":         bName,
+		"subject_uid":  "12345678",
+		"subject_type": "TEST",
+		"folder_ids":   []int64{f1.ID, f2.ID},
 		"properties": map[string]interface{}{
 			"key1": "value1",
 			"key2": "value2",

@@ -948,7 +948,7 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 	db := c.MustGet("MY_DB").(*sql.DB)
 	bookmark := &models.Bookmark{
 		UserID:      user.ID,
-		SubjectUID:  r.SourceUID,
+		SubjectUID:  r.SubjectUID,
 		SubjectType: r.SubjectType,
 	}
 	if r.Name != "" {
@@ -962,6 +962,7 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 		}
 		bookmark.Properties = null.JSONFrom(data)
 	}
+	boil.DebugMode = true
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
 		err := bookmark.Insert(tx, boil.Infer())
 		if err != nil {
@@ -974,14 +975,20 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 				var maxPosition null.Int
 				err = models.NewQuery(
 					qm.Select(fmt.Sprintf("MAX(%s)", models.BookmarkFolderColumns.Position)),
-					qm.From(models.TableNames.Bookmarks),
+					qm.From(models.TableNames.BookmarkFolder),
 					models.BookmarkFolderWhere.FolderID.EQ(id),
 				).QueryRow(tx).Scan(&maxPosition)
+				if err != nil && err != sql.ErrNoRows {
+					return pkgerr.Wrap(err, "find max position of playlist items from db")
+				}
 
 				bbfs[i] = &models.BookmarkFolder{
-					FolderID: id,
+					BookmarkID: bookmark.ID,
+					FolderID:   id,
+					Position:   maxPosition.Int + 1,
 				}
 			}
+
 			if err := bookmark.AddBookmarkFolders(tx, true, bbfs...); err != nil {
 				return pkgerr.WithStack(err)
 			}
