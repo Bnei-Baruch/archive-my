@@ -969,7 +969,15 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 		}
 		if r.FolderIDs != nil {
 			bbfs := make([]*models.BookmarkFolder, len(r.FolderIDs))
+
 			for i, id := range r.FolderIDs {
+				var maxPosition null.Int
+				err = models.NewQuery(
+					qm.Select(fmt.Sprintf("MAX(%s)", models.BookmarkFolderColumns.Position)),
+					qm.From(models.TableNames.Bookmarks),
+					models.BookmarkFolderWhere.FolderID.EQ(id),
+				).QueryRow(tx).Scan(&maxPosition)
+
 				bbfs[i] = &models.BookmarkFolder{
 					FolderID: id,
 				}
