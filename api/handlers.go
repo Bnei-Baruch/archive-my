@@ -985,7 +985,7 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 				bbfs[i] = &models.BookmarkFolder{
 					BookmarkID: bookmark.ID,
 					FolderID:   id,
-					Position:   maxPosition.Int + 1,
+					Position:   null.IntFrom(maxPosition.Int + 1),
 				}
 			}
 
