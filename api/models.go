@@ -150,8 +150,8 @@ type GetBookmarksResponse struct {
 
 type AddBookmarksRequest struct {
 	NameRequest
-	SourceUID   string                 `json:"source_uid" binding:"required,max=8"`
-	SubjectType string                 `json:"source_type" binding:"required"`
+	SourceUID   string                 `json:"subject_uid" binding:"required,max=8"`
+	SubjectType string                 `json:"subject_type" binding:"required"`
 	FolderIDs   []int64                `json:"folder_ids" binding:"omitempty"`
 	Properties  map[string]interface{} `json:"properties" binding:"omitempty"`
 }
@@ -233,8 +233,8 @@ type Subscription struct {
 type Bookmark struct {
 	ID          int64                  `json:"id"`
 	Name        string                 `json:"name"`
-	SubjectUID  string                 `json:"source_uid"`
-	SubjectType string                 `json:"source_type"`
+	SubjectUID  string                 `json:"subject_uid"`
+	SubjectType string                 `json:"subject_type"`
 	Properties  map[string]interface{} `json:"data,omitempty"`
 	FolderIds   []int64                `json:"folder_ids,omitempty"`
 }
