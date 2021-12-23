@@ -7,9 +7,6 @@ ALTER TABLE bookmarks
 ALTER TABLE bookmarks
     RENAME COLUMN subject_type TO source_type;
 
-ALTER TABLE bookmark_folder
-    ALTER COLUMN position DROP NOT NULL;
-
 CREATE
     INDEX IF NOT EXISTS bookmark_id_folder_id_idx
     ON bookmark_folder USING BTREE (bookmark_id, folder_id);

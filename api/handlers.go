@@ -980,13 +980,13 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 					models.BookmarkFolderWhere.FolderID.EQ(id),
 				).QueryRow(tx).Scan(&maxPosition)
 				if err != nil && err != sql.ErrNoRows {
-					return pkgerr.Wrap(err, "find max position of playlist items from db")
+					return pkgerr.Wrap(err, "find max position of bookmark for folder from db")
 				}
 
 				bbfs[i] = &models.BookmarkFolder{
 					BookmarkID: bookmark.ID,
 					FolderID:   id,
-					Position:   maxPosition.Int + 1,
+					Position:   null.IntFrom(maxPosition.Int + 1),
 				}
 			}
 
