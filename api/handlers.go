@@ -962,7 +962,7 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 		}
 		bookmark.Properties = null.JSONFrom(data)
 	}
-	boil.DebugMode = true
+
 	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
 		err := bookmark.Insert(tx, boil.Infer())
 		if err != nil {
