@@ -1301,8 +1301,8 @@ func (a *App) handleCreateLabel(c *gin.Context) {
 	db := c.MustGet("MY_DB").(*sql.DB)
 	label := &models.Label{
 		UserID:     user.ID,
-		SourceUID:  r.SourceUID,
-		SourceType: r.SourceType,
+		SourceUID:  r.SubjectUID,
+		SourceType: r.SubjectType,
 	}
 	if r.Name != "" {
 		label.Name = null.StringFrom(r.Name)
@@ -1495,7 +1495,7 @@ func (a *App) labelResponse(c *gin.Context, db *sql.DB, mods []qm.QueryMod, r Ge
 		return
 	}
 
-	appendSourceFilterMods(&mods, r.SourceFilter)
+	appendSubjectFilterMods(&mods, r.SubjectFilter)
 
 	labels, err := models.Labels(mods...).All(db)
 	if err != nil {
@@ -1548,8 +1548,8 @@ func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 	*mods = append(*mods, qm.Where(fmt.Sprintf("%s ILIKE ?", column), r.Query))
 }
 
-func appendSourceFilterMods(mods *[]qm.QueryMod, r SourceFilter) {
-	if r.SourceType == "" || r.SourceUID == "" {
+func appendSubjectFilterMods(mods *[]qm.QueryMod, r SubjectFilter) {
+	if r.SubjectType == "" || r.SubjectUID == "" {
 		return
 	}
 
@@ -1654,11 +1654,11 @@ func makeFolderDTO(folder *models.Folder) *Folder {
 
 func makeLabelDTO(label *models.Label) *Label {
 	resp := Label{
-		ID:         label.ID,
-		UID:        label.UID,
-		SourceUID:  label.SourceUID,
-		SourceType: label.SourceType,
-		Accepted:   label.Accepted,
+		ID:          label.ID,
+		UID:         label.UID,
+		SubjectUID:  label.SourceUID,
+		SubjectType: label.SourceType,
+		Accepted:    label.Accepted,
 	}
 
 	if label.Name.Valid {

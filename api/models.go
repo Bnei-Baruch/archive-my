@@ -21,9 +21,9 @@ type NameRequest struct {
 	Name string `json:"name" binding:"omitempty,max=256"`
 }
 
-type SourceRequest struct {
-	SourceUID  string `json:"source_uid" binding:"required,max=8"`
-	SourceType string `json:"source_type" binding:"required"`
+type SubjectRequest struct {
+	SubjectType string `json:"subject_type" binding:"required,max=32"`
+	SubjectUID  string `json:"subject_uid" binding:"required,len=8"`
 }
 
 //Filters
@@ -39,9 +39,9 @@ type QueryFilter struct {
 	Query string `json:"query" form:"query" binding:"omitempty"`
 }
 
-type SourceFilter struct {
-	SourceUID  string `json:"source_uid" form:"source_uid" binding:"omitempty"`
-	SourceType string `json:"source_type" form:"source_type" binding:"omitempty"`
+type SubjectFilter struct {
+	SubjectUID  string `json:"subject_uid" form:"subject_uid" binding:"omitempty"`
+	SubjectType string `json:"subject_type" form:"subject_type" binding:"omitempty"`
 }
 
 //Playlist
@@ -103,9 +103,8 @@ type ReactionsResponse struct {
 }
 
 type AddReactionsRequest struct {
-	Kind        string `json:"kind" binding:"required,max=16"`
-	SubjectType string `json:"subject_type" binding:"required,max=32"`
-	SubjectUID  string `json:"subject_uid" binding:"required,len=8"`
+	SubjectRequest
+	Kind string `json:"kind" binding:"required,max=16"`
 }
 
 type RemoveReactionsRequest struct {
@@ -161,11 +160,9 @@ type GetBookmarksResponse struct {
 
 type AddBookmarksRequest struct {
 	NameRequest
-	SourceRequest
-	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
-	Public    bool                   `json:"public" binding:"omitempty"`
-	Data      map[string]interface{} `json:"data" binding:"omitempty"`
-	TagsUIDs  []string               `json:"tag_uids" binding:"omitempty"`
+	SubjectRequest
+	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 type UpdateBookmarkRequest struct {
@@ -201,7 +198,7 @@ type UpdateFolderRequest struct {
 //Label
 type GetLabelsRequest struct {
 	ListRequest
-	SourceFilter
+	SubjectFilter
 	Accepted string `json:"accepted" binding:"omitempty"`
 }
 
@@ -212,7 +209,7 @@ type GetLabelsResponse struct {
 
 type AddLabelRequest struct {
 	NameRequest
-	SourceRequest
+	SubjectRequest
 	Data     map[string]interface{} `json:"data" binding:"omitempty"`
 	TagsUIDs []string               `json:"tag_uids" binding:"omitempty"`
 }
@@ -293,13 +290,13 @@ type Folder struct {
 }
 
 type Label struct {
-	ID         int64                  `json:"id"`
-	UID        string                 `json:"uid,omitempty,len=8"`
-	Name       string                 `json:"name"`
-	SourceUID  string                 `json:"source_uid"`
-	SourceType string                 `json:"source_type"`
-	TagUIds    []string               `json:"tag_uids"`
-	Data       map[string]interface{} `json:"data,omitempty"`
-	Accepted   null.Bool              `json:"accepted,omitempty"`
-	IsMy       bool                   `json:"is_my,omitempty"`
+	ID          int64                  `json:"id"`
+	UID         string                 `json:"uid,omitempty,len=8"`
+	Name        string                 `json:"name"`
+	SubjectUID  string                 `json:"subject_uid"`
+	SubjectType string                 `json:"subject_type"`
+	TagUIds     []string               `json:"tag_uids"`
+	Data        map[string]interface{} `json:"data,omitempty"`
+	Accepted    null.Bool              `json:"accepted,omitempty"`
+	IsMy        bool                   `json:"is_my,omitempty"`
 }
