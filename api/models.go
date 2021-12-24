@@ -17,7 +17,7 @@ type ListResponse struct {
 	Total int64 `json:"total"`
 }
 
-type NameRequest struct {
+type NameFilter struct {
 	Name string `json:"name" binding:"omitempty,max=256"`
 }
 
@@ -62,7 +62,7 @@ func NewPlaylistsResponse(total int64, numItems int) *PlaylistsResponse {
 }
 
 type PlaylistRequest struct {
-	NameRequest
+	NameFilter
 	Public     bool                   `json:"public"`
 	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
@@ -159,14 +159,14 @@ type GetBookmarksResponse struct {
 }
 
 type AddBookmarksRequest struct {
-	NameRequest
+	NameFilter
 	SubjectRequest
 	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
 	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 type UpdateBookmarkRequest struct {
-	NameRequest
+	NameFilter
 	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
 	Data      map[string]interface{} `json:"data" binding:"omitempty"`
 }
@@ -188,11 +188,11 @@ type GetFoldersResponse struct {
 }
 
 type AddFolderRequest struct {
-	NameRequest
+	NameFilter
 }
 
 type UpdateFolderRequest struct {
-	NameRequest
+	NameFilter
 }
 
 //Label
@@ -208,14 +208,14 @@ type GetLabelsResponse struct {
 }
 
 type AddLabelRequest struct {
-	NameRequest
+	NameFilter
 	SubjectRequest
 	Data     map[string]interface{} `json:"data" binding:"omitempty"`
 	TagsUIDs []string               `json:"tag_uids" binding:"omitempty"`
 }
 
 type UpdateLabelRequest struct {
-	NameRequest
+	NameFilter
 	Data     map[string]interface{} `json:"data" binding:"omitempty"`
 	TagsUIDs []string               `json:"tag_uids" binding:"omitempty"`
 }
