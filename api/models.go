@@ -159,7 +159,7 @@ type AddBookmarksRequest struct {
 type UpdateBookmarkRequest struct {
 	NameFilter
 	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
-	Data      map[string]interface{} `json:"data" binding:"omitempty"`
+	Properties      map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 //Folder
@@ -235,7 +235,7 @@ type Bookmark struct {
 	Name        string                 `json:"name"`
 	SubjectUID  string                 `json:"subject_uid"`
 	SubjectType string                 `json:"subject_type"`
-	Properties  map[string]interface{} `json:"data,omitempty"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
 	FolderIds   []int64                `json:"folder_ids,omitempty"`
 }
 
