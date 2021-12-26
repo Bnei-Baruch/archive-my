@@ -36,9 +36,9 @@ func (a *App) handleGetPlaylists(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -117,9 +117,9 @@ func (a *App) handleCreatePlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -168,9 +168,9 @@ func (a *App) handleGetPlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -212,9 +212,9 @@ func (a *App) handleUpdatePlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -270,9 +270,9 @@ func (a *App) handleDeletePlaylist(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -299,6 +299,7 @@ func (a *App) handleDeletePlaylist(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
+// PlaylistItem handlers
 func (a *App) handleAddPlaylistItems(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
 	if err != nil {
@@ -311,9 +312,9 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -401,9 +402,9 @@ func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -464,9 +465,9 @@ func (a *App) handleRemovePlaylistItems(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -519,9 +520,9 @@ func (a *App) handleGetReactions(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -580,9 +581,9 @@ func (a *App) handleAddReactions(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -617,9 +618,9 @@ func (a *App) handleRemoveReactions(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -684,9 +685,9 @@ func (a *App) handleGetHistory(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -739,9 +740,9 @@ func (a *App) handleDeleteHistory(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -755,16 +756,15 @@ func (a *App) handleDeleteHistory(c *gin.Context) {
 }
 
 //Subscription handlers
-
 func (a *App) handleGetSubscriptions(c *gin.Context) {
 	var r GetSubscriptionsRequest
 	if c.Bind(&r) != nil {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -827,9 +827,9 @@ func (a *App) handleSubscribe(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -867,9 +867,9 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 		return
 	}
 
-	user := c.MustGet("USER").(*models.User)
-	if user.Disabled || user.RemovedAt.Valid {
-		errs.NewForbiddenError(errors.New("inactive user")).Abort(c)
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
 		return
 	}
 
@@ -882,7 +882,400 @@ func (a *App) handleUnsubscribe(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
+//Bookmark handlers
+func (a *App) handleGetBookmarks(c *gin.Context) {
+	var r GetBookmarksRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+
+	mods := []qm.QueryMod{models.BookmarkWhere.UserID.EQ(user.ID)}
+
+	total, err := models.Bookmarks(mods...).Count(db)
+
+	mods = append(mods, qm.Load(models.BookmarkRels.BookmarkFolders))
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(GetBookmarksResponse), nil)
+		return
+	}
+	appendQueryFilter(&mods, r.QueryFilter, "name")
+	if len(r.FolderIDsFilter) > 0 {
+		mods = append(mods,
+			qm.InnerJoin("bookmark_folder bf ON id = bf.bookmark_id"),
+			qm.WhereIn("bf.folder_id in ?", utils.ConvertArgsInt64(r.FolderIDsFilter)...),
+		)
+	}
+
+	bookmarks, err := models.Bookmarks(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Bookmark, len(bookmarks))
+	for i, b := range bookmarks {
+		items[i] = makeBookmarkDTO(b)
+	}
+
+	resp := GetBookmarksResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        items,
+	}
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleCreateBookmark(c *gin.Context) {
+	var r AddBookmarksRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	bookmark := &models.Bookmark{
+		UserID:      user.ID,
+		SubjectUID:  r.SubjectUID,
+		SubjectType: r.SubjectType,
+	}
+	if r.Name != "" {
+		bookmark.Name = null.StringFrom(r.Name)
+	}
+	if r.Properties != nil {
+		data, err := json.Marshal(r.Properties)
+		if err != nil {
+			errs.NewBadRequestError(err).Abort(c)
+			return
+		}
+		bookmark.Properties = null.JSONFrom(data)
+	}
+
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		err := bookmark.Insert(tx, boil.Infer())
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+		if r.FolderIDs != nil {
+			bbfs := make([]*models.BookmarkFolder, len(r.FolderIDs))
+
+			for i, id := range r.FolderIDs {
+				var maxPosition null.Int
+				err = models.NewQuery(
+					qm.Select(fmt.Sprintf("MAX(%s)", models.BookmarkFolderColumns.Position)),
+					qm.From(models.TableNames.BookmarkFolder),
+					models.BookmarkFolderWhere.FolderID.EQ(id),
+				).QueryRow(tx).Scan(&maxPosition)
+				if err != nil && err != sql.ErrNoRows {
+					return pkgerr.Wrap(err, "find max position of bookmark for folder from db")
+				}
+
+				bbfs[i] = &models.BookmarkFolder{
+					BookmarkID: bookmark.ID,
+					FolderID:   id,
+					Position:   null.IntFrom(maxPosition.Int + 1),
+				}
+			}
+
+			if err := bookmark.AddBookmarkFolders(tx, true, bbfs...); err != nil {
+				return pkgerr.WithStack(err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+	resp := makeBookmarkDTO(bookmark)
+	resp.FolderIds = r.FolderIDs
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleUpdateBookmark(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	var r UpdateBookmarkRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	resp := &Bookmark{}
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		b, err := models.Bookmarks(
+			models.BookmarkWhere.ID.EQ(id),
+			models.BookmarkWhere.UserID.EQ(user.ID),
+			qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+		if r.Name != "" {
+			b.Name = null.StringFrom(r.Name)
+		}
+		if r.FolderIDs != nil {
+			if len(r.FolderIDs) == 0 {
+				_, err = b.R.BookmarkFolders.DeleteAll(tx)
+				if err != nil {
+					return err
+				}
+			} else {
+				forAdd, forDel := diffBFs(r.FolderIDs, b.R.BookmarkFolders)
+
+				bfs := make([]*models.BookmarkFolder, len(forAdd))
+				for i, id := range forAdd {
+					bfs[i] = &models.BookmarkFolder{
+						FolderID: id,
+					}
+				}
+
+				if len(forAdd) > 0 {
+					if err = b.AddBookmarkFolders(tx, true, bfs...); err != nil {
+						return err
+					}
+				}
+
+				if len(forDel) > 0 {
+					_, err := models.BookmarkFolders(
+						models.BookmarkFolderWhere.FolderID.IN(forDel),
+						models.BookmarkFolderWhere.BookmarkID.EQ(b.ID),
+					).DeleteAll(tx)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		if _, err := b.Update(tx, boil.Infer()); err != nil {
+			return err
+		}
+
+		reloaded, err := models.Bookmarks(models.BookmarkWhere.ID.EQ(id), qm.Load(models.BookmarkRels.BookmarkFolders)).One(tx)
+		if err != nil {
+			return err
+		}
+		*resp = *makeBookmarkDTO(reloaded)
+		return nil
+	})
+
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleDeleteBookmark(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		b, err := models.FindBookmark(tx, id)
+
+		if err == sql.ErrNoRows {
+			return nil
+		}
+
+		if err != nil {
+			return pkgerr.Wrap(err, "fetch bookmark from db")
+		}
+		_, err = b.Delete(tx)
+		return err
+	})
+
+	concludeRequest(c, nil, err)
+}
+
+//Folder handlers
+func (a *App) handleGetFolders(c *gin.Context) {
+	var r GetFoldersRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+
+	mods := []qm.QueryMod{models.FolderWhere.UserID.EQ(user.ID)}
+
+	total, err := models.Folders(mods...).Count(db)
+
+	_, offset := appendListMods(&mods, r.ListRequest)
+	if int64(offset) >= total {
+		concludeRequest(c, new(GetFoldersResponse), nil)
+		return
+	}
+
+	if r.BookmarkIdFilter != 0 {
+		mods = append(mods, qm.Load("BookmarkFolders", models.BookmarkFolderWhere.BookmarkID.EQ(r.BookmarkIdFilter)))
+	}
+	appendQueryFilter(&mods, r.QueryFilter, "name")
+	folders, err := models.Folders(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Folder, len(folders))
+	for i, f := range folders {
+		items[i] = makeFoldersDTO(f)
+	}
+
+	resp := GetFoldersResponse{
+		ListResponse: ListResponse{Total: total},
+		Items:        items,
+	}
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleCreateFolder(c *gin.Context) {
+	var r AddFolderRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	folder := &models.Folder{UserID: user.ID}
+	if r.Name != "" {
+		folder.Name = null.StringFrom(r.Name)
+	}
+
+	err := sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		err := folder.Insert(tx, boil.Infer())
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+	resp := makeFoldersDTO(folder)
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleUpdateFolder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	var r UpdateFolderRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	var resp *Folder
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		f, err := models.FindFolder(tx, id)
+		if err != nil {
+			return pkgerr.WithStack(err)
+		}
+		if f.UserID != user.ID {
+			return errs.NewNotFoundError(errors.New("owner mismatch"))
+		}
+		if r.Name != "" {
+			f.Name = null.StringFrom(r.Name)
+		}
+		_, err = f.Update(tx, boil.Infer())
+		resp = makeFoldersDTO(f)
+		return err
+	})
+
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleDeleteFolder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		b, err := models.FindFolder(tx, id)
+
+		if err == sql.ErrNoRows {
+			return nil
+		}
+
+		if err != nil {
+			return pkgerr.Wrap(err, "fetch folder from db")
+		}
+		_, err = b.Delete(tx)
+		return err
+	})
+
+	concludeRequest(c, nil, err)
+}
+
 //help functions
+
+func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
+	*user = *c.MustGet("USER").(*models.User)
+	if user.Disabled || user.RemovedAt.Valid {
+		return errs.NewForbiddenError(errors.New("inactive user"))
+	}
+	return nil
+
+}
 
 func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	if r.OrderBy != "" {
@@ -908,6 +1301,13 @@ func appendListMods(mods *[]qm.QueryMod, r ListRequest) (int, int) {
 	}
 
 	return limit, offset
+}
+
+func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
+	if r.Query == "" {
+		return
+	}
+	*mods = append(*mods, qm.Where(fmt.Sprintf("%s ILIKE ?", column), r.Query))
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {
@@ -960,4 +1360,76 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 	}
 
 	return &resp
+}
+
+func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
+	resp := Bookmark{
+		ID:          bookmark.ID,
+		SubjectUID:  bookmark.SubjectUID,
+		SubjectType: bookmark.SubjectType,
+	}
+
+	if bookmark.Name.Valid {
+		resp.Name = bookmark.Name.String
+	}
+
+	if bookmark.Properties.Valid {
+		utils.Must(bookmark.Properties.Unmarshal(&resp.Properties))
+	}
+
+	if bookmark.R != nil && bookmark.R.BookmarkFolders != nil {
+		resp.FolderIds = make([]int64, len(bookmark.R.BookmarkFolders))
+		for i, bbf := range bookmark.R.BookmarkFolders {
+			resp.FolderIds[i] = bbf.FolderID
+		}
+	}
+
+	return &resp
+}
+
+func makeFoldersDTO(folder *models.Folder) *Folder {
+	resp := Folder{
+		ID: folder.ID,
+	}
+
+	if folder.Name.Valid {
+		resp.Name = folder.Name.String
+	}
+
+	if folder.R != nil && folder.R.BookmarkFolders != nil {
+		resp.BookmarkIds = make([]int64, len(folder.R.BookmarkFolders))
+		for i, bbf := range folder.R.BookmarkFolders {
+			resp.BookmarkIds[i] = bbf.BookmarkID
+		}
+	}
+
+	return &resp
+}
+
+func diffBFs(reqIDs []int64, bfFromDB []*models.BookmarkFolder) ([]int64, []int64) {
+	if len(bfFromDB) == 0 {
+		return reqIDs, nil
+	}
+
+	forDel := make([]int64, 0)
+	forAdd := make([]int64, 0)
+	mDB := make(map[int64]bool, len(bfFromDB))
+	for _, x := range bfFromDB {
+		mDB[x.FolderID] = false
+	}
+
+	for _, x := range reqIDs {
+		if _, ok := mDB[x]; !ok {
+			forAdd = append(forAdd, x)
+			continue
+		}
+		mDB[x] = true
+	}
+
+	for x, ok := range mDB {
+		if !ok {
+			forDel = append(forDel, x)
+		}
+	}
+	return forAdd, forDel
 }

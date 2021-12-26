@@ -17,6 +17,11 @@ type ListResponse struct {
 	Total int64 `json:"total"`
 }
 
+type NameFilter struct {
+	Name string `json:"name" binding:"omitempty,max=256"`
+}
+
+//Filters
 type IDsFilter struct {
 	IDs []int64 `json:"ids" form:"ids" binding:"omitempty"`
 }
@@ -25,6 +30,11 @@ type UIDsFilter struct {
 	UIDs []string `json:"uids" form:"uids" binding:"omitempty,dive,len=8"`
 }
 
+type QueryFilter struct {
+	Query string `json:"query" form:"query" binding:"omitempty"`
+}
+
+//Playlist
 type GetPlaylistsRequest struct {
 	ListRequest
 	ExistUnit string `form:"exist_cu" binding:"omitempty"`
@@ -42,11 +52,12 @@ func NewPlaylistsResponse(total int64, numItems int) *PlaylistsResponse {
 }
 
 type PlaylistRequest struct {
-	Name       string                 `json:"name" binding:"omitempty,max=256"`
+	NameFilter
 	Public     bool                   `json:"public"`
 	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
+//PlaylistItem
 type PlaylistItemAddInfo struct {
 	Position       int    `json:"position" binding:"required"`
 	ContentUnitUID string `json:"content_unit_uid" binding:"required,len=8"`
@@ -69,6 +80,7 @@ type RemovePlaylistItemsRequest struct {
 	IDs []int64 `json:"ids" binding:"required"`
 }
 
+//Reaction
 type GetReactionsRequest struct {
 	ListRequest
 	UIDsFilter
@@ -95,6 +107,7 @@ type ReactionCountRequest struct {
 	SubjectType string `form:"type" binding:"omitempty"`
 }
 
+//History
 type GetHistoryRequest struct {
 	ListRequest
 }
@@ -104,6 +117,7 @@ type HistoryResponse struct {
 	Items []*History `json:"items"`
 }
 
+//Subscription
 type GetSubscriptionsRequest struct {
 	ListRequest
 	CollectionUID  string `form:"collection_uid" binding:"omitempty"`
@@ -120,6 +134,52 @@ type SubscribeRequest struct {
 	CollectionUID  string `json:"collection_uid" binding:"omitempty"`
 	ContentType    string `json:"content_type" binding:"omitempty"`
 	ContentUnitUID string `json:"content_unit_uid" binding:"omitempty"`
+}
+
+//Bookmark
+type GetBookmarksRequest struct {
+	ListRequest
+	QueryFilter
+	FolderIDsFilter []int64 `form:"folder_id" binding:"omitempty"`
+}
+
+type GetBookmarksResponse struct {
+	ListResponse
+	Items []*Bookmark `json:"items"`
+}
+
+type AddBookmarksRequest struct {
+	NameFilter
+	SubjectUID  string                 `json:"subject_uid" binding:"required,max=8"`
+	SubjectType string                 `json:"subject_type" binding:"required"`
+	FolderIDs   []int64                `json:"folder_ids" binding:"omitempty"`
+	Properties  map[string]interface{} `json:"properties" binding:"omitempty"`
+}
+
+type UpdateBookmarkRequest struct {
+	NameFilter
+	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
+	Properties      map[string]interface{} `json:"properties" binding:"omitempty"`
+}
+
+//Folder
+type GetFoldersRequest struct {
+	ListRequest
+	QueryFilter
+	BookmarkIdFilter int64 `form:"bookmark_id" binding:"omitempty"`
+}
+
+type GetFoldersResponse struct {
+	ListResponse
+	Items []*Folder `json:"items"`
+}
+
+type AddFolderRequest struct {
+	NameFilter
+}
+
+type UpdateFolderRequest struct {
+	NameFilter
 }
 
 // DTOs
@@ -168,4 +228,20 @@ type Subscription struct {
 	ContentUnitUID null.String `json:"content_unit_uid,omitempty"`
 	CreatedAt      time.Time   `json:"created_at"`
 	UpdatedAt      null.Time   `json:"updated_at,omitempty"`
+}
+
+type Bookmark struct {
+	ID          int64                  `json:"id"`
+	Name        string                 `json:"name"`
+	SubjectUID  string                 `json:"subject_uid"`
+	SubjectType string                 `json:"subject_type"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
+	FolderIds   []int64                `json:"folder_ids,omitempty"`
+}
+
+type Folder struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	CreatedAt   time.Time `json:"created_at"`
+	BookmarkIds []int64   `json:"bookmark_ids,omitempty"`
 }

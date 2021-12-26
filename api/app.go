@@ -124,4 +124,14 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest.DELETE("/subscriptions/:id", a.handleUnsubscribe)
 	rest.GET("/history", a.handleGetHistory)
 	rest.DELETE("/history/:id", a.handleDeleteHistory)
+	rest.GET("/bookmarks", a.handleGetBookmarks)
+	rest.POST("/bookmarks", a.handleCreateBookmark)
+	rest.PUT("/bookmarks/:id", a.handleUpdateBookmark)
+	rest.DELETE("/bookmarks/:id", a.handleDeleteBookmark)
+
+	rest.GET("/folders", a.handleGetFolders)
+	rest.POST("/folders", a.handleCreateFolder)
+	rest.PUT("/folders/:id", a.handleUpdateFolder)
+	rest.DELETE("/folders/:id", a.handleDeleteFolder)
+
 }

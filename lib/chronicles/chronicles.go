@@ -82,16 +82,6 @@ type ChronicleEventData struct {
 	CurrentTime null.Float64 `json:"current_time,omitempty"`
 }
 
-func (c *Chronicles) Init() {
-	mydbConn, err := sql.Open("postgres", common.Config.MyDBUrl)
-	utils.Must(err)
-
-	mdbConn, err := sql.Open("postgres", common.Config.MDBUrl)
-	utils.Must(err)
-
-	c.InitWithDeps(mydbConn, mdbConn)
-}
-
 func (c *Chronicles) InitWithDeps(mydbConn, mdbConn *sql.DB) {
 	c.MyDB = mydbConn
 
@@ -151,7 +141,9 @@ func (c *Chronicles) lastChroniclesId() (string, error) {
 }
 
 func (c *Chronicles) refresh() error {
+	defer c.ticker.Reset(c.interval)
 	n, err := c.scanEvents()
+
 	if err != nil {
 		return err
 	}
@@ -161,7 +153,6 @@ func (c *Chronicles) refresh() error {
 	} else {
 		c.interval = utils.MinDuration(c.interval*2, MAX_INTERVAL)
 	}
-	c.ticker.Reset(c.interval)
 
 	return nil
 }
