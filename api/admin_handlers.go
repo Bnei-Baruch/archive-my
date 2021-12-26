@@ -46,7 +46,7 @@ func (a *App) handleGetAllLabels(c *gin.Context) {
 
 //Change Bookmark accept handlers
 func (a *App) handleLabelModeration(c *gin.Context) {
-	var r LabelModerationRequest
+	var r GetLabelsRequest
 	if c.Bind(&r) != nil {
 		return
 	}
@@ -65,7 +65,10 @@ func (a *App) handleLabelModeration(c *gin.Context) {
 			return errs.NewNotFoundError(err)
 		}
 
-		b.Accepted = r.Accepted
+		b.Accepted = null.Bool{
+			Bool:  r.Accepted == "accepted",
+			Valid: true,
+		}
 
 		if _, err := b.Update(tx, boil.Whitelist(models.LabelColumns.Accepted)); err != nil {
 			return errs.NewNotFoundError(err)
