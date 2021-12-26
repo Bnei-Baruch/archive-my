@@ -896,12 +896,12 @@ func (a *App) handleGetBookmarks(c *gin.Context) {
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
+
 	mods := []qm.QueryMod{models.BookmarkWhere.UserID.EQ(user.ID)}
 
 	total, err := models.Bookmarks(mods...).Count(db)
-	mods = append(mods,
-		qm.Load(models.BookmarkRels.BookmarkFolders),
-	)
+
+	mods = append(mods, qm.Load(models.BookmarkRels.BookmarkFolders))
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
 		concludeRequest(c, new(GetBookmarksResponse), nil)
@@ -946,7 +946,6 @@ func (a *App) handleCreateBookmark(c *gin.Context) {
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
-
 	bookmark := &models.Bookmark{
 		UserID:      user.ID,
 		SubjectUID:  r.SubjectUID,
@@ -1153,7 +1152,7 @@ func (a *App) handleGetFolders(c *gin.Context) {
 
 	items := make([]*Folder, len(folders))
 	for i, f := range folders {
-		items[i] = makeFolderDTO(f)
+		items[i] = makeFoldersDTO(f)
 	}
 
 	resp := GetFoldersResponse{
@@ -1193,7 +1192,7 @@ func (a *App) handleCreateFolder(c *gin.Context) {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
 	}
-	resp := makeFolderDTO(folder)
+	resp := makeFoldersDTO(folder)
 	concludeRequest(c, resp, err)
 }
 
@@ -1229,7 +1228,7 @@ func (a *App) handleUpdateFolder(c *gin.Context) {
 			f.Name = null.StringFrom(r.Name)
 		}
 		_, err = f.Update(tx, boil.Infer())
-		resp = makeFolderDTO(f)
+		resp = makeFoldersDTO(f)
 		return err
 	})
 
@@ -1266,6 +1265,7 @@ func (a *App) handleDeleteFolder(c *gin.Context) {
 
 	concludeRequest(c, nil, err)
 }
+
 
 //Label handlers
 func (a *App) handleGetLabels(c *gin.Context) {
@@ -1471,7 +1471,9 @@ func (a *App) handleGetPublicLabels(c *gin.Context) {
 	a.labelResponse(c, db, mods, r)
 }
 
+
 //help functions
+
 
 func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
 	*user = *c.MustGet("USER").(*models.User)
@@ -1633,7 +1635,7 @@ func makeBookmarkDTO(bookmark *models.Bookmark) *Bookmark {
 	return &resp
 }
 
-func makeFolderDTO(folder *models.Folder) *Folder {
+func makeFoldersDTO(folder *models.Folder) *Folder {
 	resp := Folder{
 		ID: folder.ID,
 	}
@@ -1651,6 +1653,7 @@ func makeFolderDTO(folder *models.Folder) *Folder {
 
 	return &resp
 }
+
 
 func makeLabelDTO(label *models.Label) *Label {
 	resp := Label{
@@ -1706,6 +1709,7 @@ func diffBFs(reqIDs []int64, bfFromDB []*models.BookmarkFolder) ([]int64, []int6
 	}
 	return forAdd, forDel
 }
+
 
 func diffTags(reqUIDs []string, bfFromDB []*models.LabelTag) ([]string, []string) {
 	if len(bfFromDB) == 0 {

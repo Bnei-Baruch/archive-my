@@ -149,7 +149,6 @@ type SubscribeRequest struct {
 type GetBookmarksRequest struct {
 	ListRequest
 	QueryFilter
-	StatusFilter    string  `form:"status" binding:"omitempty"`
 	FolderIDsFilter []int64 `form:"folder_id" binding:"omitempty"`
 }
 
@@ -160,19 +159,16 @@ type GetBookmarksResponse struct {
 
 type AddBookmarksRequest struct {
 	NameFilter
-	SubjectRequest
-	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
-	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+	SubjectUID  string                 `json:"subject_uid" binding:"required,max=8"`
+	SubjectType string                 `json:"subject_type" binding:"required"`
+	FolderIDs   []int64                `json:"folder_ids" binding:"omitempty"`
+	Properties  map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 type UpdateBookmarkRequest struct {
 	NameFilter
 	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
-	Data      map[string]interface{} `json:"data" binding:"omitempty"`
-}
-
-type LabelModerationRequest struct {
-	Accepted null.Bool `json:"accepted" binding:"omitempty"`
+	Properties      map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 //Folder
@@ -194,6 +190,7 @@ type AddFolderRequest struct {
 type UpdateFolderRequest struct {
 	NameFilter
 }
+
 
 //Label
 type GetLabelsRequest struct {
@@ -225,6 +222,8 @@ type LabelModerationRequest struct {
 	Accepted null.Bool `json:"accepted" binding:"omitempty"`
 }
 */
+
+
 // DTOs
 
 type Playlist struct {
@@ -278,7 +277,7 @@ type Bookmark struct {
 	Name        string                 `json:"name"`
 	SubjectUID  string                 `json:"subject_uid"`
 	SubjectType string                 `json:"subject_type"`
-	Properties  map[string]interface{} `json:"data,omitempty"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
 	FolderIds   []int64                `json:"folder_ids,omitempty"`
 }
 
@@ -288,6 +287,7 @@ type Folder struct {
 	CreatedAt   time.Time `json:"created_at"`
 	BookmarkIds []int64   `json:"bookmark_ids,omitempty"`
 }
+
 
 type Label struct {
 	ID          int64                  `json:"id"`
