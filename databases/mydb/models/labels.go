@@ -23,62 +23,67 @@ import (
 
 // Label is an object representing the database table.
 type Label struct {
-	ID         int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	UID        string      `boil:"uid" json:"uid" toml:"uid" yaml:"uid"`
-	Name       null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
-	UserID     int64       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
-	SourceUID  string      `boil:"source_uid" json:"source_uid" toml:"source_uid" yaml:"source_uid"`
-	SourceType string      `boil:"source_type" json:"source_type" toml:"source_type" yaml:"source_type"`
-	Data       null.JSON   `boil:"data" json:"data,omitempty" toml:"data" yaml:"data,omitempty"`
-	Accepted   null.Bool   `boil:"accepted" json:"accepted,omitempty" toml:"accepted" yaml:"accepted,omitempty"`
-	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID          int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	UID         string      `boil:"uid" json:"uid" toml:"uid" yaml:"uid"`
+	Name        null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
+	UserID      int64       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
+	SubjectUID  string      `boil:"subject_uid" json:"subject_uid" toml:"subject_uid" yaml:"subject_uid"`
+	SubjectType string      `boil:"subject_type" json:"subject_type" toml:"subject_type" yaml:"subject_type"`
+	Properties  null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
+	Accepted    null.Bool   `boil:"accepted" json:"accepted,omitempty" toml:"accepted" yaml:"accepted,omitempty"`
+	Language    string      `boil:"language" json:"language" toml:"language" yaml:"language"`
+	CreatedAt   time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *labelR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L labelL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var LabelColumns = struct {
-	ID         string
-	UID        string
-	Name       string
-	UserID     string
-	SourceUID  string
-	SourceType string
-	Data       string
-	Accepted   string
-	CreatedAt  string
+	ID          string
+	UID         string
+	Name        string
+	UserID      string
+	SubjectUID  string
+	SubjectType string
+	Properties  string
+	Accepted    string
+	Language    string
+	CreatedAt   string
 }{
-	ID:         "id",
-	UID:        "uid",
-	Name:       "name",
-	UserID:     "user_id",
-	SourceUID:  "source_uid",
-	SourceType: "source_type",
-	Data:       "data",
-	Accepted:   "accepted",
-	CreatedAt:  "created_at",
+	ID:          "id",
+	UID:         "uid",
+	Name:        "name",
+	UserID:      "user_id",
+	SubjectUID:  "subject_uid",
+	SubjectType: "subject_type",
+	Properties:  "properties",
+	Accepted:    "accepted",
+	Language:    "language",
+	CreatedAt:   "created_at",
 }
 
 var LabelTableColumns = struct {
-	ID         string
-	UID        string
-	Name       string
-	UserID     string
-	SourceUID  string
-	SourceType string
-	Data       string
-	Accepted   string
-	CreatedAt  string
+	ID          string
+	UID         string
+	Name        string
+	UserID      string
+	SubjectUID  string
+	SubjectType string
+	Properties  string
+	Accepted    string
+	Language    string
+	CreatedAt   string
 }{
-	ID:         "labels.id",
-	UID:        "labels.uid",
-	Name:       "labels.name",
-	UserID:     "labels.user_id",
-	SourceUID:  "labels.source_uid",
-	SourceType: "labels.source_type",
-	Data:       "labels.data",
-	Accepted:   "labels.accepted",
-	CreatedAt:  "labels.created_at",
+	ID:          "labels.id",
+	UID:         "labels.uid",
+	Name:        "labels.name",
+	UserID:      "labels.user_id",
+	SubjectUID:  "labels.subject_uid",
+	SubjectType: "labels.subject_type",
+	Properties:  "labels.properties",
+	Accepted:    "labels.accepted",
+	Language:    "labels.language",
+	CreatedAt:   "labels.created_at",
 }
 
 // Generated where
@@ -108,25 +113,27 @@ func (w whereHelpernull_Bool) IsNull() qm.QueryMod    { return qmhelper.WhereIsN
 func (w whereHelpernull_Bool) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
 var LabelWhere = struct {
-	ID         whereHelperint64
-	UID        whereHelperstring
-	Name       whereHelpernull_String
-	UserID     whereHelperint64
-	SourceUID  whereHelperstring
-	SourceType whereHelperstring
-	Data       whereHelpernull_JSON
-	Accepted   whereHelpernull_Bool
-	CreatedAt  whereHelpertime_Time
+	ID          whereHelperint64
+	UID         whereHelperstring
+	Name        whereHelpernull_String
+	UserID      whereHelperint64
+	SubjectUID  whereHelperstring
+	SubjectType whereHelperstring
+	Properties  whereHelpernull_JSON
+	Accepted    whereHelpernull_Bool
+	Language    whereHelperstring
+	CreatedAt   whereHelpertime_Time
 }{
-	ID:         whereHelperint64{field: "\"labels\".\"id\""},
-	UID:        whereHelperstring{field: "\"labels\".\"uid\""},
-	Name:       whereHelpernull_String{field: "\"labels\".\"name\""},
-	UserID:     whereHelperint64{field: "\"labels\".\"user_id\""},
-	SourceUID:  whereHelperstring{field: "\"labels\".\"source_uid\""},
-	SourceType: whereHelperstring{field: "\"labels\".\"source_type\""},
-	Data:       whereHelpernull_JSON{field: "\"labels\".\"data\""},
-	Accepted:   whereHelpernull_Bool{field: "\"labels\".\"accepted\""},
-	CreatedAt:  whereHelpertime_Time{field: "\"labels\".\"created_at\""},
+	ID:          whereHelperint64{field: "\"labels\".\"id\""},
+	UID:         whereHelperstring{field: "\"labels\".\"uid\""},
+	Name:        whereHelpernull_String{field: "\"labels\".\"name\""},
+	UserID:      whereHelperint64{field: "\"labels\".\"user_id\""},
+	SubjectUID:  whereHelperstring{field: "\"labels\".\"subject_uid\""},
+	SubjectType: whereHelperstring{field: "\"labels\".\"subject_type\""},
+	Properties:  whereHelpernull_JSON{field: "\"labels\".\"properties\""},
+	Accepted:    whereHelpernull_Bool{field: "\"labels\".\"accepted\""},
+	Language:    whereHelperstring{field: "\"labels\".\"language\""},
+	CreatedAt:   whereHelpertime_Time{field: "\"labels\".\"created_at\""},
 }
 
 // LabelRels is where relationship names are stored.
@@ -153,8 +160,8 @@ func (*labelR) NewStruct() *labelR {
 type labelL struct{}
 
 var (
-	labelAllColumns            = []string{"id", "uid", "name", "user_id", "source_uid", "source_type", "data", "accepted", "created_at"}
-	labelColumnsWithoutDefault = []string{"uid", "name", "user_id", "source_uid", "source_type", "data", "accepted"}
+	labelAllColumns            = []string{"id", "uid", "name", "user_id", "subject_uid", "subject_type", "properties", "accepted", "language", "created_at"}
+	labelColumnsWithoutDefault = []string{"uid", "name", "user_id", "subject_uid", "subject_type", "properties", "accepted", "language"}
 	labelColumnsWithDefault    = []string{"id", "created_at"}
 	labelPrimaryKeyColumns     = []string{"id"}
 )

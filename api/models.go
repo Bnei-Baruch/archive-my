@@ -44,6 +44,10 @@ type SubjectFilter struct {
 	SubjectType string `json:"subject_type" form:"subject_type" binding:"omitempty"`
 }
 
+type LanguageFilter struct {
+	Language string `json:"language" form:"language" binding:"omitempty,len=2"`
+}
+
 //Playlist
 type GetPlaylistsRequest struct {
 	ListRequest
@@ -167,8 +171,8 @@ type AddBookmarksRequest struct {
 
 type UpdateBookmarkRequest struct {
 	NameFilter
-	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
-	Properties      map[string]interface{} `json:"properties" binding:"omitempty"`
+	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 //Folder
@@ -191,7 +195,6 @@ type UpdateFolderRequest struct {
 	NameFilter
 }
 
-
 //Label
 type GetLabelsRequest struct {
 	ListRequest
@@ -207,14 +210,15 @@ type GetLabelsResponse struct {
 type AddLabelRequest struct {
 	NameFilter
 	SubjectRequest
-	Data     map[string]interface{} `json:"data" binding:"omitempty"`
-	TagsUIDs []string               `json:"tag_uids" binding:"omitempty"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+	TagsUIDs   []string               `json:"tag_uids" binding:"omitempty"`
+	Language   string                 `json:"language" binding:"required,len=2"`
 }
 
 type UpdateLabelRequest struct {
 	NameFilter
-	Data     map[string]interface{} `json:"data" binding:"omitempty"`
-	TagsUIDs []string               `json:"tag_uids" binding:"omitempty"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+	TagsUIDs   []string               `json:"tag_uids" binding:"omitempty"`
 }
 
 /*
@@ -222,7 +226,6 @@ type LabelModerationRequest struct {
 	Accepted null.Bool `json:"accepted" binding:"omitempty"`
 }
 */
-
 
 // DTOs
 
@@ -288,7 +291,6 @@ type Folder struct {
 	BookmarkIds []int64   `json:"bookmark_ids,omitempty"`
 }
 
-
 type Label struct {
 	ID          int64                  `json:"id"`
 	UID         string                 `json:"uid,omitempty,len=8"`
@@ -298,5 +300,7 @@ type Label struct {
 	TagUIds     []string               `json:"tag_uids"`
 	Data        map[string]interface{} `json:"data,omitempty"`
 	Accepted    null.Bool              `json:"accepted,omitempty"`
+	Language    string                 `json:"language,required,len=2"`
+	Author      string                 `json:"author,omitempty"`
 	IsMy        bool                   `json:"is_my,omitempty"`
 }

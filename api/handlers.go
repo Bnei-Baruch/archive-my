@@ -1266,7 +1266,6 @@ func (a *App) handleDeleteFolder(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
-
 //Label handlers
 func (a *App) handleGetLabels(c *gin.Context) {
 	var r GetLabelsRequest
@@ -1283,6 +1282,7 @@ func (a *App) handleGetLabels(c *gin.Context) {
 	db := c.MustGet("MY_DB").(*sql.DB)
 
 	mods := []qm.QueryMod{models.LabelWhere.UserID.EQ(user.ID)}
+
 	a.labelResponse(c, db, mods, r)
 }
 
@@ -1300,17 +1300,18 @@ func (a *App) handleCreateLabel(c *gin.Context) {
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	label := &models.Label{
-		UserID:     user.ID,
-		SourceUID:  r.SubjectUID,
-		SourceType: r.SubjectType,
+		UserID:      user.ID,
+		SubjectUID:  r.SubjectUID,
+		SubjectType: r.SubjectType,
+		Language:    r.Language,
 	}
 	if r.Name != "" {
 		label.Name = null.StringFrom(r.Name)
 	}
 
-	if r.Data != nil {
-		data, err := json.Marshal(r.Data)
-		label.Data = null.JSONFrom(data)
+	if r.Properties != nil {
+		data, err := json.Marshal(r.Properties)
+		label.Properties = null.JSONFrom(data)
 		if err != nil {
 			errs.NewBadRequestError(err).Abort(c)
 			return
@@ -1346,6 +1347,13 @@ func (a *App) handleCreateLabel(c *gin.Context) {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
 	}
+
+	label, err = models.Labels(qm.Load(models.LabelRels.User), models.LabelWhere.ID.EQ(label.ID)).One(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
 	resp := makeLabelDTO(label)
 	concludeRequest(c, resp, err)
 }
@@ -1466,14 +1474,12 @@ func (a *App) handleGetPublicLabels(c *gin.Context) {
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
-	mods := []qm.QueryMod{models.LabelWhere.Accepted.NEQ(null.BoolFrom(false))}
+	mods := []qm.QueryMod{qm.Where("accepted IS NULL OR accepted = 't'")}
 
 	a.labelResponse(c, db, mods, r)
 }
 
-
 //help functions
-
 
 func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
 	*user = *c.MustGet("USER").(*models.User)
@@ -1486,17 +1492,19 @@ func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
 
 func (a *App) labelResponse(c *gin.Context, db *sql.DB, mods []qm.QueryMod, r GetLabelsRequest) {
 
+	boil.DebugMode = true
 	total, err := models.Labels(mods...).Count(db)
 
-	mods = append(mods,
-		qm.Load(models.LabelRels.LabelTags),
-	)
 	_, offset := appendListMods(&mods, r.ListRequest)
 	if int64(offset) >= total {
 		concludeRequest(c, new(GetLabelsResponse), nil)
 		return
 	}
 
+	mods = append(mods,
+		qm.Load(models.LabelRels.LabelTags),
+		qm.Load(models.LabelRels.User),
+	)
 	appendSubjectFilterMods(&mods, r.SubjectFilter)
 
 	labels, err := models.Labels(mods...).All(db)
@@ -1555,7 +1563,7 @@ func appendSubjectFilterMods(mods *[]qm.QueryMod, r SubjectFilter) {
 		return
 	}
 
-	*mods = append(*mods, qm.Where("source_uid = ? AND source_type = ?"))
+	*mods = append(*mods, qm.Where("subject_type = ? AND subject_uid = ?", r.SubjectType, r.SubjectUID))
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {
@@ -1654,22 +1662,22 @@ func makeFoldersDTO(folder *models.Folder) *Folder {
 	return &resp
 }
 
-
 func makeLabelDTO(label *models.Label) *Label {
 	resp := Label{
 		ID:          label.ID,
 		UID:         label.UID,
-		SubjectUID:  label.SourceUID,
-		SubjectType: label.SourceType,
+		SubjectUID:  label.SubjectUID,
+		SubjectType: label.SubjectType,
 		Accepted:    label.Accepted,
+		Language:    label.Language,
 	}
 
 	if label.Name.Valid {
 		resp.Name = label.Name.String
 	}
 
-	if label.Data.Valid {
-		utils.Must(label.Data.Unmarshal(&resp.Data))
+	if label.Properties.Valid {
+		utils.Must(label.Properties.Unmarshal(&resp.Data))
 	}
 
 	if label.R != nil && label.R.LabelTags != nil {
@@ -1679,6 +1687,9 @@ func makeLabelDTO(label *models.Label) *Label {
 		}
 	}
 
+	if label.R != nil && label.R.User != nil {
+		resp.Author = fmt.Sprintf("%s %s", label.R.User.FirstName.String, label.R.User.LastName.String)
+	}
 	return &resp
 }
 
@@ -1709,7 +1720,6 @@ func diffBFs(reqIDs []int64, bfFromDB []*models.BookmarkFolder) ([]int64, []int6
 	}
 	return forAdd, forDel
 }
-
 
 func diffTags(reqUIDs []string, bfFromDB []*models.LabelTag) ([]string, []string) {
 	if len(bfFromDB) == 0 {
