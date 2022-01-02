@@ -1505,7 +1505,8 @@ func (a *App) labelResponse(c *gin.Context, db *sql.DB, mods []qm.QueryMod, r Ge
 		qm.Load(models.LabelRels.LabelTags),
 		qm.Load(models.LabelRels.User),
 	)
-	appendSubjectFilterMods(&mods, r.SubjectFilter)
+	appendSubjectFilter(&mods, r.SubjectFilter)
+	appendLanguageFilter(&mods, r.LanguageFilter)
 
 	labels, err := models.Labels(mods...).All(db)
 	if err != nil {
@@ -1558,12 +1559,20 @@ func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 	*mods = append(*mods, qm.Where(fmt.Sprintf("%s ILIKE ?", column), r.Query))
 }
 
-func appendSubjectFilterMods(mods *[]qm.QueryMod, r SubjectFilter) {
+func appendSubjectFilter(mods *[]qm.QueryMod, r SubjectFilter) {
 	if r.SubjectType == "" || r.SubjectUID == "" {
 		return
 	}
 
 	*mods = append(*mods, qm.Where("subject_type = ? AND subject_uid = ?", r.SubjectType, r.SubjectUID))
+}
+
+func appendLanguageFilter(mods *[]qm.QueryMod, r LanguageFilter) {
+	if r.Language == "" {
+		return
+	}
+
+	*mods = append(*mods, qm.Where("language = ?", r.Language))
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {

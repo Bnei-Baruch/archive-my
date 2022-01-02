@@ -199,6 +199,7 @@ type UpdateFolderRequest struct {
 type GetLabelsRequest struct {
 	ListRequest
 	SubjectFilter
+	LanguageFilter
 	Accepted string `json:"accepted" binding:"omitempty"`
 }
 
