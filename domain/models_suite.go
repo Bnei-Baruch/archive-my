@@ -2,11 +2,10 @@ package domain
 
 import (
 	"encoding/json"
-	"math/rand"
-
 	"github.com/stretchr/testify/suite"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"math/rand"
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/testutil"
@@ -111,7 +110,7 @@ func (s *ModelsSuite) CreateReaction(user *models.User, kind, sType, sUID string
 	return reaction
 }
 
-func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data map[string]interface{}) *models.Bookmark {
+func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, properties map[string]interface{}) *models.Bookmark {
 	bookmark := &models.Bookmark{
 		Name:        null.StringFrom(name),
 		UserID:      user.ID,
@@ -122,8 +121,8 @@ func (s *ModelsSuite) CreateBookmark(user *models.User, name, sType string, data
 		bookmark.SubjectType = "TEST_CONTENT_TYPE"
 	}
 
-	if data != nil {
-		dataJson, err := json.Marshal(data)
+	if properties != nil {
+		dataJson, err := json.Marshal(properties)
 		s.Require().NoError(err)
 		bookmark.Properties = null.JSONFrom(dataJson)
 	}
@@ -141,4 +140,35 @@ func (s *ModelsSuite) CreateFolder(user *models.User, name string) *models.Folde
 
 	s.Require().NoError(folder.Insert(s.MyDB.DB, boil.Infer()))
 	return folder
+}
+
+func (s *ModelsSuite) CreateLabel(user *models.User, name, sType, lang string, properties map[string]interface{}) *models.Label {
+	label := &models.Label{
+		ID:          0,
+		UID:         utils.GenerateUID(8),
+		Name:        null.StringFrom(name),
+		UserID:      user.ID,
+		SubjectUID:  utils.GenerateUID(8),
+		SubjectType: sType,
+		Language:    lang,
+	}
+	if sType != "" {
+		label.SubjectType = "TEST_CONTENT_TYPE"
+	}
+
+	if properties != nil {
+		dataJson, err := json.Marshal(properties)
+		s.Require().NoError(err)
+		label.Properties = null.JSONFrom(dataJson)
+	}
+
+	s.Require().NoError(label.Insert(s.MyDB.DB, boil.Infer()))
+
+	lts := make([]*models.LabelTag, 2)
+	for i, _ := range lts {
+		lts[i] = &models.LabelTag{TagUID: utils.GenerateUID(8)}
+	}
+	s.Require().NoError(label.AddLabelTags(s.MyDB.DB, true, lts...))
+
+	return label
 }

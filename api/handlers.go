@@ -1348,7 +1348,7 @@ func (a *App) handleCreateLabel(c *gin.Context) {
 		return
 	}
 
-	label, err = models.Labels(qm.Load(models.LabelRels.User), models.LabelWhere.ID.EQ(label.ID)).One(db)
+	label, err = models.Labels(qm.Load(models.LabelRels.User), qm.Load(models.LabelRels.LabelTags), models.LabelWhere.ID.EQ(label.ID)).One(db)
 	if err != nil {
 		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
 		return
@@ -1686,7 +1686,7 @@ func makeLabelDTO(label *models.Label) *Label {
 	}
 
 	if label.Properties.Valid {
-		utils.Must(label.Properties.Unmarshal(&resp.Data))
+		utils.Must(label.Properties.Unmarshal(&resp.Properties))
 	}
 
 	if label.R != nil && label.R.LabelTags != nil {

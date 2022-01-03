@@ -222,11 +222,9 @@ type UpdateLabelRequest struct {
 	TagsUIDs   []string               `json:"tag_uids" binding:"omitempty"`
 }
 
-/*
 type LabelModerationRequest struct {
 	Accepted null.Bool `json:"accepted" binding:"omitempty"`
 }
-*/
 
 // DTOs
 
@@ -299,7 +297,7 @@ type Label struct {
 	SubjectUID  string                 `json:"subject_uid"`
 	SubjectType string                 `json:"subject_type"`
 	TagUIds     []string               `json:"tag_uids"`
-	Data        map[string]interface{} `json:"data,omitempty"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
 	Accepted    null.Bool              `json:"accepted,omitempty"`
 	Language    string                 `json:"language,required,len=2"`
 	Author      string                 `json:"author,omitempty"`

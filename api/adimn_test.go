@@ -1,6 +1,5 @@
 package api
 
-/*
 import (
 	"bytes"
 	"fmt"
@@ -16,7 +15,7 @@ import (
 func (s *ApiTestSuite) TestAdmin_permissions() {
 	user := s.CreateUser()
 
-	req, _ := http.NewRequest(http.MethodGet, "/admin/bookmarks", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/admin/labels", nil)
 	s.apiAuthUser(req, user)
 	resp := s.request(req)
 	s.Require().Equal(http.StatusForbidden, resp.Code)
@@ -27,30 +26,28 @@ func (s *ApiTestSuite) TestAdmin_permissions() {
 	s.Require().Equal(http.StatusOK, resp.Code)
 }
 
-func (s *ApiTestSuite) TestAdmin_getBookmarks() {
+func (s *ApiTestSuite) TestAdmin_getLabels() {
 	admin := s.CreateUser()
 	user1 := s.CreateUser()
 	user2 := s.CreateUser()
 
-	// no Bookmarks whatsoever
-	req, _ := http.NewRequest(http.MethodGet, "/admin/bookmarks", nil)
+	// no Labels whatsoever
+	req, _ := http.NewRequest(http.MethodGet, "/admin/labels", nil)
 	s.apiAuthP(req, admin.AccountsID, []string{"kmedia_moderator"})
-	var resp GetBookmarksResponse
+	var resp GetLabelsResponse
 	s.request200json(req, &resp)
 
 	s.EqualValues(0, resp.Total, "total")
 	s.Empty(resp.Items, "items empty")
 
 	s.assertTokenVerifier()
-	bookmarks := make([]*models.Bookmark, 6)
-	for i := range bookmarks {
+	labels := make([]*models.Label, 6)
+	for i := range labels {
 		odd := i%2 == 0
 		if odd {
-			bookmarks[i] = s.CreateBookmark(user1, fmt.Sprintf("Bookmark-%d", i), "", nil, true)
-			_ = s.CreateBookmark(user2, fmt.Sprintf("Bookmark-%d", i), "", nil, false)
+			labels[i] = s.CreateLabel(user1, fmt.Sprintf("Label-%d", i), "", "en", nil)
 		} else {
-			_ = s.CreateBookmark(user1, fmt.Sprintf("Bookmark-%d", i), "", nil, false)
-			bookmarks[i] = s.CreateBookmark(user2, fmt.Sprintf("Bookmark-%d", i), "", nil, true)
+			labels[i] = s.CreateLabel(user2, fmt.Sprintf("Label-%d", i), "", "en", nil)
 		}
 	}
 
@@ -58,34 +55,33 @@ func (s *ApiTestSuite) TestAdmin_getBookmarks() {
 	s.apiAuthP(req, admin.AccountsID, []string{"kmedia_moderator"})
 	s.request200json(req, &resp)
 
-	s.EqualValues(len(bookmarks), resp.Total, "total")
-	s.Require().Len(resp.Items, len(bookmarks), "items length")
+	s.EqualValues(len(labels), resp.Total, "total")
+	s.Require().Len(resp.Items, len(labels), "items length")
 	for i, x := range resp.Items {
-		s.assertBookmark(bookmarks[i], x, i)
+		s.assertLabel(labels[i], x, i)
 	}
 }
 
 func (s *ApiTestSuite) TestAdmin_setAccept() {
 	admin := s.CreateUser()
 	user := s.CreateUser()
-	b := s.CreateBookmark(user, "Bookmark", "", nil, true)
+	b := s.CreateLabel(user, "Label", "", "en", nil)
 
 	var resp GetLabelsResponse
-	req, _ := http.NewRequest(http.MethodGet, "/admin/bookmarks", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/admin/labels", nil)
 	s.apiAuthP(req, admin.AccountsID, []string{"kmedia_moderator"})
 	s.request200json(req, &resp)
 	s.EqualValues(1, resp.Total, "total")
-	//s.assertBookmark(b, resp.Items[0], 1)
+	s.assertLabel(b, resp.Items[0], 1)
 
 	s.assertTokenVerifier()
 	payload, err := json.Marshal(LabelModerationRequest{Accepted: null.BoolFrom(false)})
 	s.NoError(err)
-	req, _ = http.NewRequest(http.MethodPut, fmt.Sprintf("/admin/bookmarks/%d/accept", b.ID), bytes.NewReader(payload))
+	req, _ = http.NewRequest(http.MethodPut, fmt.Sprintf("/admin/labels/%d", b.ID), bytes.NewReader(payload))
 	s.apiAuthP(req, admin.AccountsID, []string{"kmedia_moderator"})
 
 	var respChanged Label
 	s.request200json(req, &respChanged)
-	s.EqualValues(false, respChanged.Accepted)
+	s.EqualValues(null.Bool{Bool: false, Valid: true}, respChanged.Accepted)
 
 }
-*/

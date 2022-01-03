@@ -56,11 +56,11 @@ func (s *ApiTestSuite) TestBookmark_createBookmark_badRequest() {
 
 	// bad properties json
 	payload, err := json.Marshal(map[string]interface{}{
-		"name":        "test bookmark",
-		"source_uid":  "12345678",
-		"source_type": "TEST",
-		"folder_ids":  "[1, 2]",
-		"properties":  "malformed json {}",
+		"name":         "test bookmark",
+		"subject_uid":  "12345678",
+		"subject_type": "TEST",
+		"folder_ids":   "[1, 2]",
+		"properties":   "malformed json {}",
 	})
 	s.Require().NoError(err)
 	req, _ := http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
@@ -80,8 +80,8 @@ func (s *ApiTestSuite) TestBookmark_createBookmark_badRequest() {
 
 	// no required source uid
 	payload, err = json.Marshal(map[string]interface{}{
-		"name":        "test bookmark",
-		"source_type": "TEST",
+		"name":         "test bookmark",
+		"subject_type": "TEST",
 	})
 	s.Require().NoError(err)
 	req, _ = http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
@@ -91,8 +91,8 @@ func (s *ApiTestSuite) TestBookmark_createBookmark_badRequest() {
 
 	// no required source content type
 	payload, err = json.Marshal(map[string]interface{}{
-		"name":       "test bookmark",
-		"source_uid": "12345678",
+		"name":        "test bookmark",
+		"subject_uid": "12345678",
 	})
 	s.Require().NoError(err)
 	req, _ = http.NewRequest(http.MethodPost, "/rest/bookmarks", bytes.NewReader(payload))
