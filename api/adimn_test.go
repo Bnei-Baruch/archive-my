@@ -75,7 +75,7 @@ func (s *ApiTestSuite) TestAdmin_setAccept() {
 	s.assertLabel(b, resp.Items[0], 1)
 
 	s.assertTokenVerifier()
-	payload, err := json.Marshal(LabelModerationRequest{Accepted: null.BoolFrom(false)})
+	payload, err := json.Marshal(LabelModerationRequest{AcceptedFilter{Accepted: null.BoolFrom(false)}})
 	s.NoError(err)
 	req, _ = http.NewRequest(http.MethodPut, fmt.Sprintf("/admin/labels/%d", b.ID), bytes.NewReader(payload))
 	s.apiAuthP(req, admin.AccountsID, []string{"kmedia_moderator"})

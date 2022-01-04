@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	pkgerr "github.com/pkg/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
@@ -17,7 +16,7 @@ import (
 )
 
 func (a *App) handleGetAllLabels(c *gin.Context) {
-	var r GetLabelsRequest
+	var r GetLabelsAdminRequest
 	if c.Bind(&r) != nil {
 		return
 	}
@@ -25,28 +24,16 @@ func (a *App) handleGetAllLabels(c *gin.Context) {
 	db := c.MustGet("MY_DB").(*sql.DB)
 	mods := []qm.QueryMod{}
 
-	if r.Accepted != "" {
-		s := null.Bool{
-			Bool:  false,
-			Valid: false,
-		}
-		if r.Accepted == "accepted" {
-			s.Bool = true
-			s.Valid = true
-		}
-		if r.Accepted == "declined" {
-			s.Bool = false
-			s.Valid = true
-		}
-		mods = append(mods, models.LabelWhere.Accepted.EQ(s))
+	if !r.GetAll {
+		mods = append(mods, models.LabelWhere.Accepted.EQ(r.Accepted))
 	}
 
-	a.labelResponse(c, db, mods, r)
+	a.labelResponse(c, db, mods, r.GetLabelsRequest)
 }
 
 //Change Bookmark accept handlers
 func (a *App) handleLabelModeration(c *gin.Context) {
-	var r GetLabelsRequest
+	var r LabelModerationRequest
 	if c.Bind(&r) != nil {
 		return
 	}
@@ -65,10 +52,7 @@ func (a *App) handleLabelModeration(c *gin.Context) {
 			return errs.NewNotFoundError(err)
 		}
 
-		b.Accepted = null.Bool{
-			Bool:  r.Accepted == "accepted",
-			Valid: true,
-		}
+		b.Accepted = r.Accepted
 
 		if _, err := b.Update(tx, boil.Whitelist(models.LabelColumns.Accepted)); err != nil {
 			return errs.NewNotFoundError(err)

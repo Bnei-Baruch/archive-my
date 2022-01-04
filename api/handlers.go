@@ -1515,8 +1515,8 @@ func (a *App) labelResponse(c *gin.Context, db *sql.DB, mods []qm.QueryMod, r Ge
 	}
 
 	items := make([]*Label, len(labels))
-	for i, f := range labels {
-		items[i] = makeLabelDTO(f)
+	for i, l := range labels {
+		items[i] = makeLabelDTO(l)
 	}
 
 	resp := GetLabelsResponse{

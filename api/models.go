@@ -48,6 +48,10 @@ type LanguageFilter struct {
 	Language string `json:"language" form:"language" binding:"omitempty,len=2"`
 }
 
+type AcceptedFilter struct {
+	Accepted null.Bool `json:"accepted" form:"accepted" binding:"omitempty"`
+}
+
 //Playlist
 type GetPlaylistsRequest struct {
 	ListRequest
@@ -200,7 +204,12 @@ type GetLabelsRequest struct {
 	ListRequest
 	SubjectFilter
 	LanguageFilter
-	Accepted string `json:"accepted" binding:"omitempty"`
+}
+
+type GetLabelsAdminRequest struct {
+	GetLabelsRequest
+	AcceptedFilter
+	GetAll bool `form:"get_all" binding:"omitempty"`
 }
 
 type GetLabelsResponse struct {
@@ -223,7 +232,7 @@ type UpdateLabelRequest struct {
 }
 
 type LabelModerationRequest struct {
-	Accepted null.Bool `json:"accepted" binding:"omitempty"`
+	AcceptedFilter
 }
 
 // DTOs
