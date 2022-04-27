@@ -6,22 +6,24 @@ import (
 )
 
 type config struct {
-	ListenAddress string
-	GinMode       string
-	MyDBUrl       string
-	MDBUrl        string
-	ChroniclesUrl string
-	AccountsUrls  []string
+	ListenAddress        string
+	GinMode              string
+	MyDBUrl              string
+	MDBUrl               string
+	ChroniclesUrl        string
+	ChroniclesNamespaces []string
+	AccountsUrls         []string
 }
 
 func newConfig() *config {
 	return &config{
-		ListenAddress: ":8080",
-		GinMode:       "debug",
-		MyDBUrl:       "postgres://user:password@localhost/mydb?sslmode=disable",
-		MDBUrl:        "postgres://user:password@localhost/mdb?sslmode=disable",
-		AccountsUrls:  []string{"https://accounts.kab.info/auth/realms/main"},
-		ChroniclesUrl: "https://chronicle-sserver/scan",
+		ListenAddress:        ":8080",
+		GinMode:              "debug",
+		MyDBUrl:              "postgres://user:password@localhost/mydb?sslmode=disable",
+		MDBUrl:               "postgres://user:password@localhost/mdb?sslmode=disable",
+		AccountsUrls:         []string{"https://accounts.kab.info/auth/realms/main"},
+		ChroniclesUrl:        "https://chronicle-sserver/scan",
+		ChroniclesNamespaces: []string{"archive", "kmedia-app-11"},
 	}
 }
 
@@ -44,6 +46,9 @@ func Init() {
 	}
 	if val := os.Getenv("CHRONICLES_URL"); val != "" {
 		Config.ChroniclesUrl = val
+	}
+	if val := os.Getenv("CHRONICLES_NAMESPACES"); val != "" {
+		Config.ChroniclesNamespaces = strings.Split(val, ",")
 	}
 	if val := os.Getenv("ACCOUNTS_URL"); val != "" {
 		Config.AccountsUrls = strings.Split(val, ",")

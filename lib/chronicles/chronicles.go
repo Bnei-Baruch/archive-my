@@ -184,7 +184,7 @@ func (c *Chronicles) fetchEvents() (*ScanResponse, error) {
 		Id:         c.lastReadId,
 		Limit:      SCAN_SIZE,
 		EventTypes: []string{"player-play", "player-stop"},
-		Namespaces: []string{"archive"},
+		Namespaces: common.Config.ChroniclesNamespaces,
 		Keycloak:   true,
 	}
 	payloadBytes, err := json.Marshal(payload)
