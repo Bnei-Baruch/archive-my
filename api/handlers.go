@@ -692,6 +692,7 @@ func (a *App) handleGetHistory(c *gin.Context) {
 	}
 
 	mods := []qm.QueryMod{qm.Where("user_id = ?", user.ID)}
+	appendCUUIDsFilterMods(&mods, r.CUUIDsFilter)
 
 	db := c.MustGet("MY_DB").(*sql.DB)
 	total, err := models.Histories(mods...).Count(db)
@@ -1308,6 +1309,14 @@ func appendQueryFilter(mods *[]qm.QueryMod, r QueryFilter, column string) {
 		return
 	}
 	*mods = append(*mods, qm.Where(fmt.Sprintf("%s ILIKE ?", column), r.Query))
+}
+
+func appendCUUIDsFilterMods(mods *[]qm.QueryMod, r CUUIDsFilter) {
+	if len(r.CUUIDs) == 0 {
+		return
+	}
+
+	*mods = append(*mods, qm.WhereIn("content_unit_uid IN ?", utils.ConvertArgsString(r.CUUIDs)...))
 }
 
 func concludeRequest(c *gin.Context, resp interface{}, err error) {

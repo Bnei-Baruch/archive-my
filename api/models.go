@@ -30,6 +30,10 @@ type UIDsFilter struct {
 	UIDs []string `json:"uids" form:"uids" binding:"omitempty,dive,len=8"`
 }
 
+type CUUIDsFilter struct {
+	CUUIDs []string `json:"cu_uids" form:"cu_uids" binding:"omitempty,dive,len=8"`
+}
+
 type QueryFilter struct {
 	Query string `json:"query" form:"query" binding:"omitempty"`
 }
@@ -110,6 +114,7 @@ type ReactionCountRequest struct {
 //History
 type GetHistoryRequest struct {
 	ListRequest
+	CUUIDsFilter
 }
 
 type HistoryResponse struct {
@@ -158,8 +163,8 @@ type AddBookmarksRequest struct {
 
 type UpdateBookmarkRequest struct {
 	NameFilter
-	FolderIDs []int64                `json:"folder_ids" binding:"omitempty"`
-	Properties      map[string]interface{} `json:"properties" binding:"omitempty"`
+	FolderIDs  []int64                `json:"folder_ids" binding:"omitempty"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 //Folder
