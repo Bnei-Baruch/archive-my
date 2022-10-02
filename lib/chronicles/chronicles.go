@@ -6,17 +6,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
-
-	pkgerr "github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
 	"github.com/Bnei-Baruch/archive-my/common"
 	"github.com/Bnei-Baruch/archive-my/databases/mdb"
@@ -24,6 +18,11 @@ import (
 	"github.com/Bnei-Baruch/archive-my/pkg/sqlutil"
 	"github.com/Bnei-Baruch/archive-my/pkg/utils"
 	"github.com/Bnei-Baruch/archive-my/version"
+	pkgerr "github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries"
 )
 
 const (
@@ -251,11 +250,17 @@ func (c *Chronicles) saveEvents(tx *sql.Tx, events []*ChronicleEvent) error {
 
 	for _, x := range uniqEvents {
 		user := usersLRU[x.AccountId]
+
+		if len(x.Data.UnitUID) > 8 {
+			log.Error().Msgf("error on insert event to DB. UnitUID is wrong Event: %s", x.Data.UnitUID)
+			continue
+		}
+
 		if err := c.insertEvent(tx, x, user); err != nil {
-			return err
+			return pkgerr.Wrapf(err, "error on insert event to DB. Event: %v", x)
 		}
 		if err := c.updateSubscriptions(tx, x, user); err != nil {
-			return err
+			return pkgerr.Wrapf(err, "error on update subscription. Event: %v", x)
 		}
 	}
 
