@@ -178,7 +178,7 @@ func (c *Chronicles) scanEvents() (int, error) {
 }
 
 func (c *Chronicles) fetchEvents() (*ScanResponse, error) {
-	log.Info().Msgf("fetching chronicles entries from namespace [%s] , last successful [%s]", common.Config.ChroniclesNamespaces, c.lastReadId)
+	log.Info().Msgf("fetching chronicles entries, last successful [%s]", c.lastReadId)
 
 	payload := ScanRequest{
 		Id:         c.lastReadId,
