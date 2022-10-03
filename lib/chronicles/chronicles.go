@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -128,8 +129,7 @@ func (c *Chronicles) Shutdown() {
 }
 
 func (c *Chronicles) lastChroniclesId() (string, error) {
-	return "2FZjbfm2EYtSYGU8FfU18XZfHki", nil
-	/*var lastID null.String
+	var lastID null.String
 	err := models.NewQuery(
 		qm.Select(fmt.Sprintf("MAX(%s)", models.HistoryColumns.ChroniclesID)),
 		qm.From(models.TableNames.History),
@@ -137,7 +137,7 @@ func (c *Chronicles) lastChroniclesId() (string, error) {
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
-	return lastID.String, err*/
+	return lastID.String, err
 }
 
 func (c *Chronicles) refresh() error {
