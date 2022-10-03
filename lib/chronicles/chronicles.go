@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -36,9 +35,10 @@ type Chronicles struct {
 	ticker   *time.Ticker
 	interval time.Duration
 
-	lastReadId  string
-	prevReadId  string
-	nextRefresh time.Time
+	lastReadId   string
+	prevReadId   string
+	nextRefresh  time.Time
+	brokenChrIds []string
 
 	MyDB             *sql.DB
 	MDB              *sql.DB
@@ -128,7 +128,8 @@ func (c *Chronicles) Shutdown() {
 }
 
 func (c *Chronicles) lastChroniclesId() (string, error) {
-	var lastID null.String
+	return "2FZjbfm2EYtSYGU8FfU18XZfHki", nil
+	/*var lastID null.String
 	err := models.NewQuery(
 		qm.Select(fmt.Sprintf("MAX(%s)", models.HistoryColumns.ChroniclesID)),
 		qm.From(models.TableNames.History),
@@ -136,7 +137,7 @@ func (c *Chronicles) lastChroniclesId() (string, error) {
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
-	return lastID.String, err
+	return lastID.String, err*/
 }
 
 func (c *Chronicles) refresh() error {
@@ -161,10 +162,18 @@ func (c *Chronicles) scanEvents() (int, error) {
 	if err != nil {
 		return 0, pkgerr.Wrap(err, "fetch events from chronicles")
 	}
-
 	err = sqlutil.InTx(context.TODO(), c.MyDB, func(tx *sql.Tx) error {
 		return c.saveEvents(tx, resp.Entries)
 	})
+
+	if len(c.brokenChrIds) > 0 {
+
+		entries := c.cleanBrokenEntries(resp.Entries)
+		err = sqlutil.InTx(context.TODO(), c.MyDB, func(tx *sql.Tx) error {
+			return c.saveEvents(tx, entries)
+		})
+	}
+
 	if err != nil {
 		return 0, pkgerr.Wrap(err, "save chronicles events")
 	}
@@ -174,6 +183,22 @@ func (c *Chronicles) scanEvents() (int, error) {
 	}
 
 	return len(resp.Entries), nil
+}
+
+func (c *Chronicles) cleanBrokenEntries(all []*ChronicleEvent) []*ChronicleEvent {
+	clean := make([]*ChronicleEvent, 0)
+	for _, e := range all {
+		isBrok := false
+		for _, id := range c.brokenChrIds {
+			if !isBrok && id == e.ID {
+				isBrok = true
+			}
+		}
+		if !isBrok {
+			clean = append(clean, e)
+		}
+	}
+	return clean
 }
 
 func (c *Chronicles) fetchEvents() (*ScanResponse, error) {
@@ -239,6 +264,7 @@ func (c *Chronicles) saveEvents(tx *sql.Tx, events []*ChronicleEvent) error {
 				if err == sql.ErrNoRows {
 					continue // skip anonymous users
 				}
+				c.brokenChrIds = append(c.brokenChrIds, x.ID)
 				return pkgerr.Wrap(err, "lookup user in db")
 			}
 			usersLRU[x.AccountId] = user
@@ -251,15 +277,12 @@ func (c *Chronicles) saveEvents(tx *sql.Tx, events []*ChronicleEvent) error {
 	for _, x := range uniqEvents {
 		user := usersLRU[x.AccountId]
 
-		if len(x.Data.UnitUID) > 8 {
-			log.Error().Msgf("error on insert event to DB. UnitUID is wrong Event: %s", x.Data.UnitUID)
-			continue
-		}
-
 		if err := c.insertEvent(tx, x, user); err != nil {
+			c.brokenChrIds = append(c.brokenChrIds, x.ID)
 			return pkgerr.Wrapf(err, "error on insert event to DB. Event: %v", x)
 		}
 		if err := c.updateSubscriptions(tx, x, user); err != nil {
+			c.brokenChrIds = append(c.brokenChrIds, x.ID)
 			return pkgerr.Wrapf(err, "error on update subscription. Event: %v", x)
 		}
 	}
