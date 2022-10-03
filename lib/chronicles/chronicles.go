@@ -162,16 +162,17 @@ func (c *Chronicles) scanEvents() (int, error) {
 	if err != nil {
 		return 0, pkgerr.Wrap(err, "fetch events from chronicles")
 	}
+	c.brokenChrIds = nil
 	err = sqlutil.InTx(context.TODO(), c.MyDB, func(tx *sql.Tx) error {
 		return c.saveEvents(tx, resp.Entries)
 	})
-
 	if len(c.brokenChrIds) > 0 {
-
 		entries := c.cleanBrokenEntries(resp.Entries)
 		err = sqlutil.InTx(context.TODO(), c.MyDB, func(tx *sql.Tx) error {
 			return c.saveEvents(tx, entries)
 		})
+	} else if err != nil {
+		return 0, pkgerr.Wrap(err, "save chronicles events")
 	}
 
 	if err != nil {
