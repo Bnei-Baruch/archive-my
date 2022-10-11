@@ -23,7 +23,7 @@ func newConfig() *config {
 		MDBUrl:               "postgres://user:password@localhost/mdb?sslmode=disable",
 		AccountsUrls:         []string{"https://accounts.kab.info/auth/realms/main"},
 		ChroniclesUrl:        "https://chronicle-sserver/scan",
-		ChroniclesNamespaces: []string{"archive", "kmedia-app-11"},
+		ChroniclesNamespaces: []string{"archive" /*, "kmedia-app-11"*/},
 	}
 }
 
