@@ -39,7 +39,7 @@ type Chronicles struct {
 	lastReadId   string
 	prevReadId   string
 	nextRefresh  time.Time
-	brokenChrIds []string
+	brokenChrIds map[string]bool
 
 	MyDB             *sql.DB
 	MDB              *sql.DB
@@ -162,14 +162,13 @@ func (c *Chronicles) scanEvents() (int, error) {
 	if err != nil {
 		return 0, pkgerr.Wrap(err, "fetch events from chronicles")
 	}
-	c.brokenChrIds = nil
+	c.brokenChrIds = map[string]bool{}
 	err = sqlutil.InTx(context.TODO(), c.MyDB, func(tx *sql.Tx) error {
 		return c.saveEvents(tx, resp.Entries)
 	})
 	if len(c.brokenChrIds) > 0 {
-		entries := c.cleanBrokenEntries(resp.Entries)
 		err = sqlutil.InTx(context.TODO(), c.MyDB, func(tx *sql.Tx) error {
-			return c.saveEvents(tx, entries)
+			return c.saveEvents(tx, resp.Entries)
 		})
 	} else if err != nil {
 		return 0, pkgerr.Wrap(err, "save chronicles events")
@@ -184,22 +183,6 @@ func (c *Chronicles) scanEvents() (int, error) {
 	}
 
 	return len(resp.Entries), nil
-}
-
-func (c *Chronicles) cleanBrokenEntries(all []*ChronicleEvent) []*ChronicleEvent {
-	clean := make([]*ChronicleEvent, 0)
-	for _, e := range all {
-		isBrok := false
-		for _, id := range c.brokenChrIds {
-			if !isBrok && id == e.ID {
-				isBrok = true
-			}
-		}
-		if !isBrok {
-			clean = append(clean, e)
-		}
-	}
-	return clean
 }
 
 func (c *Chronicles) fetchEvents() (*ScanResponse, error) {
@@ -246,6 +229,8 @@ func (c *Chronicles) fetchEvents() (*ScanResponse, error) {
 func (c *Chronicles) saveEvents(tx *sql.Tx, events []*ChronicleEvent) error {
 	usersLRU := make(map[string]*models.User)
 	uniqEvents := make(map[string]*ChronicleEvent, 0)
+	errs := make([]error, 0)
+
 	for _, x := range events {
 		// skip too early events
 		// TODO: is this comparison correct ? what about timezones ?
@@ -265,29 +250,36 @@ func (c *Chronicles) saveEvents(tx *sql.Tx, events []*ChronicleEvent) error {
 				if err == sql.ErrNoRows {
 					continue // skip anonymous users
 				}
-				c.brokenChrIds = append(c.brokenChrIds, x.ID)
-				return pkgerr.Wrap(err, "lookup user in db")
+				c.brokenChrIds[getEventKey(x)] = true
+				errs = append(errs, pkgerr.Wrap(err, "lookup user in db"))
+				continue
 			}
 			usersLRU[x.AccountId] = user
 		}
 
-		k := fmt.Sprintf("%s_%s", x.AccountId, x.Data.UnitUID)
-		uniqEvents[k] = x
+		k := getEventKey(x)
+		if _, ok := c.brokenChrIds[k]; !ok {
+			uniqEvents[k] = x
+		}
 	}
 
 	for _, x := range uniqEvents {
 		user := usersLRU[x.AccountId]
 
 		if err := c.insertEvent(tx, x, user); err != nil {
-			c.brokenChrIds = append(c.brokenChrIds, x.ID)
-			return pkgerr.Wrapf(err, "error on insert event to DB. Event: %v", x)
+			c.brokenChrIds[getEventKey(x)] = true
+			errs = append(errs, pkgerr.Wrapf(err, "error on insert event to DB. Event: %v", x))
+			continue
 		}
 		if err := c.updateSubscriptions(tx, x, user); err != nil {
-			c.brokenChrIds = append(c.brokenChrIds, x.ID)
-			return pkgerr.Wrapf(err, "error on update subscription. Event: %v", x)
+			c.brokenChrIds[getEventKey(x)] = true
+			errs = append(errs, pkgerr.Wrapf(err, "error on update subscription. Event: %v", x))
+			continue
 		}
 	}
-
+	if len(errs) > 0 {
+		return pkgerr.New(fmt.Sprintf("%v", errs))
+	}
 	return nil
 }
 
@@ -429,4 +421,11 @@ func mergeData(data null.JSON, nd map[string]interface{}) (*null.JSON, error) {
 		return nil, err
 	}
 	return &null.JSON{JSON: dStr, Valid: true}, nil
+}
+
+func getEventKey(e *ChronicleEvent) string {
+	if e == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s_%s", e.AccountId, e.Data.UnitUID)
 }
