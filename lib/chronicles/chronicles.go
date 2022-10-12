@@ -9,6 +9,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"time"
 
@@ -35,6 +36,7 @@ const (
 type Chronicles struct {
 	ticker   *time.Ticker
 	interval time.Duration
+	scanSize int
 
 	lastReadId   string
 	prevReadId   string
@@ -55,6 +57,14 @@ type ScanRequest struct {
 	UserIds    []string `json:"user_ids,omitempty"`
 	Namespaces []string `json:"namespaces,omitempty"`
 	Keycloak   bool     `json:"keycloak"`
+}
+
+type ScanResponseBroken struct {
+	Entries []*ChronicleEventId `json:"entries"`
+}
+
+type ChronicleEventId struct {
+	ID string `json:"id"`
 }
 
 type ScanResponse struct {
@@ -99,6 +109,7 @@ func (c *Chronicles) Run() {
 
 	var err error
 	c.lastReadId, err = c.lastChroniclesId()
+	c.scanSize = SCAN_SIZE
 	utils.Must(err)
 
 	go func() {
@@ -145,10 +156,13 @@ func (c *Chronicles) refresh() error {
 	n, err := c.scanEvents()
 
 	if err != nil {
+		c.interval = MIN_INTERVAL / 2
+		c.scanSize = int(math.Max(float64(c.scanSize/2), 1))
 		return err
 	}
 
-	if n == SCAN_SIZE {
+	c.scanSize = int(math.Min(float64(c.scanSize*2), SCAN_SIZE))
+	if n == c.scanSize {
 		c.interval = utils.MaxDuration(c.interval/2, MIN_INTERVAL)
 	} else {
 		c.interval = utils.MinDuration(c.interval*2, MAX_INTERVAL)
@@ -190,7 +204,7 @@ func (c *Chronicles) fetchEvents() (*ScanResponse, error) {
 
 	payload := ScanRequest{
 		Id:         c.lastReadId,
-		Limit:      SCAN_SIZE,
+		Limit:      c.scanSize,
 		EventTypes: []string{"player-play", "player-stop"},
 		Namespaces: common.Config.ChroniclesNamespaces,
 		Keycloak:   true,
@@ -218,12 +232,27 @@ func (c *Chronicles) fetchEvents() (*ScanResponse, error) {
 		}
 		_ = resp.Body.Close()
 	}()
-	var scanResponse ScanResponse
-	if err := json.NewDecoder(resp.Body).Decode(&scanResponse); err != nil {
-		return nil, pkgerr.WithMessage(err, "json.Decode")
+
+	var scanResp ScanResponse
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return &scanResp, err
 	}
 
-	return &scanResponse, nil
+	if err = json.Unmarshal(body, &scanResp); err != nil {
+		//possible that we get json with broken entries, so we find this entry and skip it
+		if c.scanSize == 1 {
+			var brokenResp ScanResponseBroken
+			if err := json.Unmarshal(body, &brokenResp); err != nil {
+				return nil, pkgerr.WithMessage(err, fmt.Sprintf("json.Decode cant get Chronicle Id from response entry %s", body))
+			}
+			c.lastReadId = brokenResp.Entries[0].ID
+			return nil, pkgerr.New(fmt.Sprintf("can't decode entry with Id %v", brokenResp.Entries))
+		}
+		return nil, err
+	}
+
+	return &scanResp, nil
 }
 
 func (c *Chronicles) saveEvents(tx *sql.Tx, events []*ChronicleEvent) error {
