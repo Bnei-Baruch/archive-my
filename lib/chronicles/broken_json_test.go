@@ -23,5 +23,5 @@ func (s *ChroniclesTestSuite) TestChronicles_brokenJson() {
 	chr.InitWithDeps(s.MyDB.DB, s.MDB.DB)
 
 	_, err := chr.scanEvents()
-	s.Require().NoError(err)
+	s.Require().Error(err)
 }
