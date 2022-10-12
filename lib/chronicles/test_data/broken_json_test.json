@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "id": "2Fu9FXr9zfRVooMiB9hU8ERyage",
+      "created_at": "2022-10-09T15:56:31.822403Z",
+      "user_id": "%[1]s",
+      "ip_addr": "31.221.162.51",
+      "user_agent": "Kaballah/2 CFNetwork/1390 Darwin/22.0.0",
+      "namespace": "kmedia-app-11",
+      "client_event_id": "01GEYQCEHAWYN4HRVDZANXKSGS",
+      "client_event_type": "player-play",
+      "client_flow_id": "01GEYQCEH99RCJY6Q4H0NV3Y49",
+      "client_flow_type": "collection-unit-selected",
+      "client_session_id": null,
+      "data": {
+        "duration": 1598.981201171875,
+        "file_uid": "bybl5Ouf",
+        "location": "Home",
+        "unit_uid": "lCElSww0",
+        "was_muted": false,
+        "ui_language": "es",
+        "current_time": "0.000000000000000",
+        "file_language": "es",
+        "content_language": "es"
+      }
+    }
+  ]
+}
