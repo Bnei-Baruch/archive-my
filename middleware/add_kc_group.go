@@ -16,15 +16,19 @@ func AddToKeycloakGroup() gin.HandlerFunc {
 		user := c.MustGet("USER").(*models.User)
 		claims := c.MustGet("ID_CLAIMS").(*IDTokenClaims)
 
-		if len(claims.RealmAccess.Roles) > 1 {
-			c.Next()
-			return
+		addKC := len(claims.RealmAccess.Roles) == 0
+		for _, role := range claims.RealmAccess.Roles {
+			if role == common.Config.KmediaKCRole {
+				return
+			}
+			if role == common.Config.NewUserKCRole {
+				addKC = true
+			}
 		}
-		if len(claims.RealmAccess.Roles) > 0 && claims.RealmAccess.Roles[0] != common.Config.DefaultKCGroup {
-			c.Next()
-			return
+
+		if addKC {
+			sendAddKCGroup(user.AccountsID)
 		}
-		sendAddKCGroup(user.AccountsID)
 	}
 }
 

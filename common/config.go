@@ -13,7 +13,9 @@ type config struct {
 	ChroniclesUrl        string
 	ChroniclesNamespaces []string
 	AccountsUrls         []string
-	KCGroupUrl     string
+	NewUserKCRole        string
+	KCGroupUrl           string
+	KmediaKCRole         string
 }
 
 func newConfig() *config {
@@ -25,7 +27,8 @@ func newConfig() *config {
 		AccountsUrls:         []string{"https://accounts.kab.info/auth/realms/main"},
 		ChroniclesUrl:        "https://chronicle-sserver/scan",
 		ChroniclesNamespaces: []string{"archive", "kmedia-app-11"},
-		DefaultKCGroup: "new role",
+		NewUserKCRole:        "new_user",
+		KmediaKCRole:         "kmedia_user",
 	}
 }
 
@@ -55,8 +58,11 @@ func Init() {
 	if val := os.Getenv("ACCOUNTS_URL"); val != "" {
 		Config.AccountsUrls = strings.Split(val, ",")
 	}
-	if val := os.Getenv("DEFAULT_KC_GROUP"); val != "" {
-		Config.DefaultKCGroup = val
+	if val := os.Getenv("NEW_USER_KC_ROLE"); val != "" {
+		Config.NewUserKCRole = val
+	}
+	if val := os.Getenv("KMEDIA_KC_ROLE"); val != "" {
+		Config.KmediaKCRole = val
 	}
 	if val := os.Getenv("KC_ADD_GROUP_URL"); val != "" {
 		Config.KCGroupUrl = val
