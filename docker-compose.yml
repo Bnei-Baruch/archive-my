@@ -5,17 +5,17 @@ services:
     image: postgres:12
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: 12345
-      POSTGRES_USER: davgur
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: user
       POSTGRES_DB: mydb
     ports:
-      - 5434:5432
+      - 5432:5432
   mdb:
     image: postgres:9
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: 12345
-      POSTGRES_USER: davgur
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: user
       POSTGRES_DB: mdb
     ports:
       - 5433:5432
