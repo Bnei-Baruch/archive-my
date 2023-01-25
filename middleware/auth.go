@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
@@ -110,7 +109,6 @@ func (v *FailoverOIDCTokenVerifier) Verify(ctx context.Context, tokenStr string)
 }
 
 type Auth struct {
-	mu     sync.Mutex
 	claims *IDTokenClaims
 	db     *sql.DB
 	user   *models.User
@@ -143,7 +141,6 @@ func (a *Auth) AuthenticationMiddleware(tokenVerifier OIDCTokenVerifier) gin.Han
 			return
 		}
 		c.Set("USER", a.user)
-
 		c.Next()
 	}
 }
@@ -163,10 +160,11 @@ func (a *Auth) getOrCreateUser() error {
 
 	tx, err := a.db.Begin()
 	utils.Must(err)
-	// check if not unique on DB - "23505": "unique_violation",
+
 	errDB := user.Insert(tx, boil.Infer())
 	if errDB != nil {
 		utils.Must(tx.Rollback())
+		//continue if return error "violates unique constraint"
 		if !strings.Contains(errDB.Error(), "pq: duplicate key value violates unique constraint \"users_accounts_id_key\"") {
 			return pkgerr.Wrap(errDB, "create new user in DB")
 		}
