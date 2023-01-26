@@ -39,7 +39,7 @@ func sendAddKCGroup(userId string) {
 		log.Error().Err(err).Msgf("Error on send to KC")
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp == nil || resp.StatusCode != http.StatusOK {
 		log.Error().Msgf("Error on add to KC group")
 	}
 }
