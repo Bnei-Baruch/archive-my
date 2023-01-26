@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net/http"
+	"strings"
+
 	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
 	pkgerr "github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-	"net/http"
-	"strings"
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
 	"github.com/Bnei-Baruch/archive-my/pkg/errs"
@@ -159,10 +160,11 @@ func (a *Auth) getOrCreateUser() error {
 
 	tx, err := a.db.Begin()
 	utils.Must(err)
-	// check if not unique on DB - "23505": "unique_violation",
+
 	errDB := user.Insert(tx, boil.Infer())
 	if errDB != nil {
 		utils.Must(tx.Rollback())
+		//continue if return error "violates unique constraint"
 		if !strings.Contains(errDB.Error(), "pq: duplicate key value violates unique constraint \"users_accounts_id_key\"") {
 			return pkgerr.Wrap(errDB, "create new user in DB")
 		}
