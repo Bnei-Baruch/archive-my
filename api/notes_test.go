@@ -1,8 +1,7 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
@@ -48,33 +47,10 @@ func (s *ApiTestSuite) TestNotes_deleteNote() {
 
 	note := s.CreateNote(user, "en")
 
-	payload, err := json.Marshal(map[string]interface{}{
-		"language":    note.Language,
-		"subject_uid": note.SubjectUID,
-	})
-	s.NoError(err)
-
-	req, _ := http.NewRequest(http.MethodDelete, "/rest/notes", bytes.NewReader(payload))
+	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/rest/notes/%d", note.ID), nil)
 	s.apiAuthUser(req, user)
 	resp := s.request(req)
 	s.Equal(http.StatusOK, resp.Code)
-}
-
-func (s *ApiTestSuite) TestNotes_deleteNote_fail() {
-	user := s.CreateUser()
-
-	note := s.CreateNote(user, "en")
-
-	//remove without kind
-	payload, err := json.Marshal(map[string]interface{}{
-		"language":    note.Language,
-		"subject_uid": note.SubjectUID,
-	})
-	s.NoError(err)
-	req, _ := http.NewRequest(http.MethodDelete, "/rest/notes", bytes.NewReader(payload))
-	s.apiAuthUser(req, user)
-	resp := s.request(req)
-	s.Equal(http.StatusBadRequest, resp.Code)
 }
 
 //help functions
