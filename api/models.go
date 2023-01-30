@@ -187,6 +187,30 @@ type UpdateFolderRequest struct {
 	NameFilter
 }
 
+//Note
+type GetNotesRequest struct {
+	IDsFilter
+	SubjectUIDFilter string `json:"subject_uid" binding:"max=8"`
+	LanguageFilter   string `json:"language" binding:"max=2"`
+	WithContent      bool   `json:"with_content"`
+}
+
+type NotesResponse struct {
+	Items []*Note `json:"items"`
+}
+
+type AddNoteRequest struct {
+	Content    string                 `json:"name" binding:"omitempty,max=1000"`
+	SubjectUID string                 `json:"subject_uid" binding:"required,max=8"`
+	Language   string                 `json:"language" binding:"required,max=2"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+}
+
+type UpdateNoteRequest struct {
+	Content    string                 `json:"name" binding:"omitempty,max=1000"`
+	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+}
+
 // DTOs
 
 type Playlist struct {
@@ -249,4 +273,13 @@ type Folder struct {
 	Name        string    `json:"name"`
 	CreatedAt   time.Time `json:"created_at"`
 	BookmarkIds []int64   `json:"bookmark_ids,omitempty"`
+}
+
+type Note struct {
+	ID         int64                  `json:"id"`
+	Content    string                 `json:"content"`
+	SubjectUID string                 `json:"subject_uid"`
+	Language   string                 `json:"language"`
+	Properties map[string]interface{} `json:"properties,omitempty"`
+	CreatedAt  time.Time              `json:"created_at"`
 }

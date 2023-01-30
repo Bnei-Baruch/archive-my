@@ -8,7 +8,7 @@ CREATE TABLE notes
 (
     id          BIGSERIAL PRIMARY KEY,
     user_id     BIGINT REFERENCES users                NOT NULL,
-    content     TEXT,
+    content     TEXT                                   NOT NULL,
     subject_uid CHAR(8)                                NOT NULL,
     properties  JSONB,
     language    CHAR(2)                                NOT NULL,

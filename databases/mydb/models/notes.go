@@ -23,13 +23,13 @@ import (
 
 // Note is an object representing the database table.
 type Note struct {
-	ID         int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	UserID     int64       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
-	Content    null.String `boil:"content" json:"content,omitempty" toml:"content" yaml:"content,omitempty"`
-	SubjectUID string      `boil:"subject_uid" json:"subject_uid" toml:"subject_uid" yaml:"subject_uid"`
-	Properties null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
-	Language   string      `boil:"language" json:"language" toml:"language" yaml:"language"`
-	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID         int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
+	UserID     int64     `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
+	Content    string    `boil:"content" json:"content" toml:"content" yaml:"content"`
+	SubjectUID string    `boil:"subject_uid" json:"subject_uid" toml:"subject_uid" yaml:"subject_uid"`
+	Properties null.JSON `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
+	Language   string    `boil:"language" json:"language" toml:"language" yaml:"language"`
+	CreatedAt  time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *noteR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L noteL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -76,7 +76,7 @@ var NoteTableColumns = struct {
 var NoteWhere = struct {
 	ID         whereHelperint64
 	UserID     whereHelperint64
-	Content    whereHelpernull_String
+	Content    whereHelperstring
 	SubjectUID whereHelperstring
 	Properties whereHelpernull_JSON
 	Language   whereHelperstring
@@ -84,7 +84,7 @@ var NoteWhere = struct {
 }{
 	ID:         whereHelperint64{field: "\"notes\".\"id\""},
 	UserID:     whereHelperint64{field: "\"notes\".\"user_id\""},
-	Content:    whereHelpernull_String{field: "\"notes\".\"content\""},
+	Content:    whereHelperstring{field: "\"notes\".\"content\""},
 	SubjectUID: whereHelperstring{field: "\"notes\".\"subject_uid\""},
 	Properties: whereHelpernull_JSON{field: "\"notes\".\"properties\""},
 	Language:   whereHelperstring{field: "\"notes\".\"language\""},
@@ -113,8 +113,8 @@ type noteL struct{}
 
 var (
 	noteAllColumns            = []string{"id", "user_id", "content", "subject_uid", "properties", "language", "created_at"}
-	noteColumnsWithoutDefault = []string{"user_id", "subject_uid", "language"}
-	noteColumnsWithDefault    = []string{"id", "content", "properties", "created_at"}
+	noteColumnsWithoutDefault = []string{"user_id", "content", "subject_uid", "language"}
+	noteColumnsWithDefault    = []string{"id", "properties", "created_at"}
 	notePrimaryKeyColumns     = []string{"id"}
 	noteGeneratedColumns      = []string{}
 )
