@@ -3,7 +3,7 @@ ARG build_number=dev
 ARG mydb_url="postgres://user:password@host.docker.internal/mydb?sslmode=disable"
 ARG mdb_url="postgres://user:password@host.docker.internal:5433/mdb?sslmode=disable"
 
-FROM golang:1.16-alpine3.14 as build
+FROM golang:1.17-alpine3.15 as build
 
 LABEL maintainer="edoshor@gmail.com"
 
