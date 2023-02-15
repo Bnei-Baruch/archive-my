@@ -1299,7 +1299,7 @@ func (a *App) handleGetNotes(c *gin.Context) {
 
 	items := make([]*Note, len(notes))
 	for i, n := range notes {
-		items[i] = makeNoteDTO(n, r.WithContent)
+		items[i] = makeNoteDTO(n)
 	}
 
 	resp := NotesResponse{Items: items}
@@ -1337,7 +1337,7 @@ func (a *App) handleAddNote(c *gin.Context) {
 
 	err := note.Insert(db, boil.Infer())
 
-	resp := makeNoteDTO(note, true)
+	resp := makeNoteDTO(note)
 	concludeRequest(c, resp, err)
 }
 
@@ -1553,7 +1553,7 @@ func makeFoldersDTO(folder *models.Folder) *Folder {
 	return &resp
 }
 
-func makeNoteDTO(note *models.Note, withContent bool) *Note {
+func makeNoteDTO(note *models.Note) *Note {
 	resp := Note{
 		ID: note.ID,
 	}
@@ -1566,9 +1566,7 @@ func makeNoteDTO(note *models.Note, withContent bool) *Note {
 		utils.Must(note.Properties.Unmarshal(&resp.Properties))
 	}
 
-	if withContent {
-		resp.Content = note.Content
-	}
+	resp.Content = note.Content
 
 	return &resp
 }

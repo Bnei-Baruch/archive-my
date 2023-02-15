@@ -192,7 +192,7 @@ type GetNotesRequest struct {
 	IDsFilter
 	SubjectUIDFilter string `json:"subject_uid" binding:"max=8"`
 	LanguageFilter   string `json:"language" binding:"max=2"`
-	WithContent      bool   `json:"with_content"`
+	Content          string `json:"content" binding:"omitempty,max=1000"`
 }
 
 type NotesResponse struct {
@@ -200,7 +200,7 @@ type NotesResponse struct {
 }
 
 type AddNoteRequest struct {
-	Content    string                 `json:"name" binding:"omitempty,max=1000"`
+	Content    string                 `json:"content" binding:"omitempty,max=1000"`
 	SubjectUID string                 `json:"subject_uid" binding:"required,max=8"`
 	Language   string                 `json:"language" binding:"required,max=2"`
 	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
