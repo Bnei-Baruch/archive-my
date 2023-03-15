@@ -1442,3 +1442,55 @@ func diffBFs(reqIDs []int64, bfFromDB []*models.BookmarkFolder) ([]int64, []int6
 	}
 	return forAdd, forDel
 }
+
+// Languages
+func (a *App) handleGetLanguages(c *gin.Context) {
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	*user = *c.MustGet("USER").(*models.User)
+	var resp Languages
+	if user.Languages.Valid {
+		utils.Must(user.Languages.Unmarshal(&resp))
+	}
+
+	concludeRequest(c, resp, nil)
+}
+
+func (a *App) handleSetLanguages(c *gin.Context) {
+	var l Languages
+	if c.BindJSON(&l) != nil {
+		return
+	}
+
+	languages_data, err := json.Marshal(l)
+	if err != nil {
+		errs.NewBadRequestError(err).Abort(c)
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	err = sqlutil.InTx(context.TODO(), db, func(tx *sql.Tx) error {
+		user := models.User{
+			ID:        user.ID,
+			Languages: null.JSONFrom(languages_data),
+		}
+		if _, err := user.Update(tx, boil.Infer()); err != nil {
+			return pkgerr.WithStack(err)
+		}
+
+		return nil
+	})
+
+	var resp interface{}
+	concludeRequest(c, resp, err)
+}

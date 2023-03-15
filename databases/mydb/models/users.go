@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/friendsofgo/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
@@ -33,6 +33,7 @@ type User struct {
 	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt  null.Time   `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
 	RemovedAt  null.Time   `boil:"removed_at" json:"removed_at,omitempty" toml:"removed_at" yaml:"removed_at,omitempty"`
+	Languages  null.JSON   `boil:"languages" json:"languages,omitempty" toml:"languages" yaml:"languages,omitempty"`
 
 	R *userR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -49,6 +50,7 @@ var UserColumns = struct {
 	CreatedAt  string
 	UpdatedAt  string
 	RemovedAt  string
+	Languages  string
 }{
 	ID:         "id",
 	AccountsID: "accounts_id",
@@ -60,6 +62,7 @@ var UserColumns = struct {
 	CreatedAt:  "created_at",
 	UpdatedAt:  "updated_at",
 	RemovedAt:  "removed_at",
+	Languages:  "languages",
 }
 
 var UserTableColumns = struct {
@@ -73,6 +76,7 @@ var UserTableColumns = struct {
 	CreatedAt  string
 	UpdatedAt  string
 	RemovedAt  string
+	Languages  string
 }{
 	ID:         "users.id",
 	AccountsID: "users.accounts_id",
@@ -84,6 +88,7 @@ var UserTableColumns = struct {
 	CreatedAt:  "users.created_at",
 	UpdatedAt:  "users.updated_at",
 	RemovedAt:  "users.removed_at",
+	Languages:  "users.languages",
 }
 
 // Generated where
@@ -99,6 +104,7 @@ var UserWhere = struct {
 	CreatedAt  whereHelpertime_Time
 	UpdatedAt  whereHelpernull_Time
 	RemovedAt  whereHelpernull_Time
+	Languages  whereHelpernull_JSON
 }{
 	ID:         whereHelperint64{field: "\"users\".\"id\""},
 	AccountsID: whereHelperstring{field: "\"users\".\"accounts_id\""},
@@ -110,6 +116,7 @@ var UserWhere = struct {
 	CreatedAt:  whereHelpertime_Time{field: "\"users\".\"created_at\""},
 	UpdatedAt:  whereHelpernull_Time{field: "\"users\".\"updated_at\""},
 	RemovedAt:  whereHelpernull_Time{field: "\"users\".\"removed_at\""},
+	Languages:  whereHelpernull_JSON{field: "\"users\".\"languages\""},
 }
 
 // UserRels is where relationship names are stored.
@@ -148,8 +155,8 @@ func (*userR) NewStruct() *userR {
 type userL struct{}
 
 var (
-	userAllColumns            = []string{"id", "accounts_id", "email", "first_name", "last_name", "disabled", "properties", "created_at", "updated_at", "removed_at"}
-	userColumnsWithoutDefault = []string{"accounts_id", "email", "first_name", "last_name", "properties", "updated_at", "removed_at"}
+	userAllColumns            = []string{"id", "accounts_id", "email", "first_name", "last_name", "disabled", "properties", "created_at", "updated_at", "removed_at", "languages"}
+	userColumnsWithoutDefault = []string{"accounts_id", "email", "first_name", "last_name", "properties", "updated_at", "removed_at", "languages"}
 	userColumnsWithDefault    = []string{"id", "disabled", "created_at"}
 	userPrimaryKeyColumns     = []string{"id"}
 )

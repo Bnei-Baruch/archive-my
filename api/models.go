@@ -250,3 +250,9 @@ type Folder struct {
 	CreatedAt   time.Time `json:"created_at"`
 	BookmarkIds []int64   `json:"bookmark_ids,omitempty"`
 }
+
+// Languages
+type Languages struct {
+	Languages      []string `json:"languages"`
+	ShowAllContent bool     `json:"show_all_content"`
+}

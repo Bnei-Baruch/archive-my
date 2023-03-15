@@ -135,4 +135,6 @@ func (a *App) initRoutes(verifier middleware.OIDCTokenVerifier) {
 	rest.PUT("/folders/:id", a.handleUpdateFolder)
 	rest.DELETE("/folders/:id", a.handleDeleteFolder)
 
+	rest.GET("/languages", a.handleGetLanguages)
+	rest.POST("/languages", a.handleSetLanguages)
 }
