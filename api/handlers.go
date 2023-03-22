@@ -1360,13 +1360,13 @@ func (a *App) handleUpdateNote(c *gin.Context) {
 	}
 
 	db := c.MustGet("MY_DB").(*sql.DB)
-	resp, err := models.Notes(
+	note, err := models.Notes(
 		models.NoteWhere.ID.EQ(id),
 		models.NoteWhere.UserID.EQ(user.ID),
 	).One(db)
 
 	if r.Content != "" {
-		resp.Content = r.Content
+		note.Content = r.Content
 	}
 	if r.Properties != nil {
 		props, err := json.Marshal(r.Properties)
@@ -1375,11 +1375,15 @@ func (a *App) handleUpdateNote(c *gin.Context) {
 			return
 
 		}
-		resp.Properties = null.JSONFrom(props)
+		note.Properties = null.JSONFrom(props)
 	}
 
-	_, err = resp.Update(db, boil.Infer())
-	concludeRequest(c, resp, err)
+	if _, err = note.Update(db, boil.Infer()); err != nil {
+		errs.NewInternalError(pkgerr.Wrap(err, "update note exception")).Abort(c)
+		return
+	}
+	err = note.Reload(db)
+	concludeRequest(c, note, err)
 }
 
 func (a *App) handleDeleteNote(c *gin.Context) {

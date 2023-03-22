@@ -190,9 +190,9 @@ type UpdateFolderRequest struct {
 //Note
 type GetNotesRequest struct {
 	IDsFilter
-	SubjectUIDFilter string `json:"subject_uid" binding:"max=8"`
-	LanguageFilter   string `json:"language" binding:"max=2"`
-	Content          string `json:"content" binding:"omitempty,max=1000"`
+	SubjectUIDFilter string `json:"subject_uid" form:"subject_uid" binding:"max=8"`
+	LanguageFilter   string `json:"language"  form:"language" binding:"max=2"`
+	Content          string `json:"content"  form:"content" binding:"omitempty,max=1000"`
 }
 
 type NotesResponse struct {
@@ -200,15 +200,15 @@ type NotesResponse struct {
 }
 
 type AddNoteRequest struct {
-	Content    string                 `json:"content" binding:"omitempty,max=1000"`
-	SubjectUID string                 `json:"subject_uid" binding:"required,max=8"`
-	Language   string                 `json:"language" binding:"required,max=2"`
-	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+	Content    string                 `json:"content" form:"content" binding:"omitempty,max=1000"`
+	SubjectUID string                 `json:"subject_uid" form:"subject_uid" binding:"required,max=8"`
+	Language   string                 `json:"language" form:"language" binding:"required,max=2"`
+	Properties map[string]interface{} `json:"properties" form:"properties" binding:"omitempty"`
 }
 
 type UpdateNoteRequest struct {
-	Content    string                 `json:"name" binding:"omitempty,max=1000"`
-	Properties map[string]interface{} `json:"properties" binding:"omitempty"`
+	Content    string                 `json:"content" form:"content" binding:"omitempty,max=1000"`
+	Properties map[string]interface{} `json:"properties"  form:"properties" binding:"omitempty"`
 }
 
 // DTOs
