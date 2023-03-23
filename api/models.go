@@ -200,7 +200,7 @@ type NotesResponse struct {
 }
 
 type AddNoteRequest struct {
-	Content    string                 `json:"content" form:"content" binding:"omitempty,max=1000"`
+	Content    string                 `json:"content" form:"content" binding:"omitempty"`
 	SubjectUID string                 `json:"subject_uid" form:"subject_uid" binding:"required,max=8"`
 	Language   string                 `json:"language" form:"language" binding:"required,max=2"`
 	Properties map[string]interface{} `json:"properties" form:"properties" binding:"omitempty"`
