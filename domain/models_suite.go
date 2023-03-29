@@ -142,3 +142,13 @@ func (s *ModelsSuite) CreateFolder(user *models.User, name string) *models.Folde
 	s.Require().NoError(folder.Insert(s.MyDB.DB, boil.Infer()))
 	return folder
 }
+
+func (s *ModelsSuite) CreateNote(user *models.User, language string) *models.Note {
+	note := &models.Note{
+		UserID:     user.ID,
+		SubjectUID: utils.GenerateUID(8),
+		Language:   language,
+	}
+	s.Require().NoError(note.Insert(s.MyDB.DB, boil.Infer()))
+	return note
+}

@@ -1267,6 +1267,148 @@ func (a *App) handleDeleteFolder(c *gin.Context) {
 	concludeRequest(c, nil, err)
 }
 
+//Notes handlers
+func (a *App) handleGetNotes(c *gin.Context) {
+	var r GetNotesRequest
+	if c.Bind(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+
+	mods := []qm.QueryMod{models.NoteWhere.UserID.EQ(user.ID)}
+	if r.SubjectUIDFilter != "" {
+		mods = append(mods, models.NoteWhere.SubjectUID.EQ(r.SubjectUIDFilter))
+	}
+
+	if r.LanguageFilter != "" {
+		mods = append(mods, models.NoteWhere.Language.EQ(r.LanguageFilter))
+	}
+
+	notes, err := models.Notes(mods...).All(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.WithStack(err)).Abort(c)
+		return
+	}
+
+	items := make([]*Note, len(notes))
+	for i, n := range notes {
+		items[i] = makeNoteDTO(n)
+	}
+
+	resp := NotesResponse{Items: items}
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleAddNote(c *gin.Context) {
+	var r AddNoteRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	note := &models.Note{
+		UserID:     user.ID,
+		SubjectUID: r.SubjectUID,
+		Language:   r.Language,
+	}
+	note.Content = r.Content
+
+	if r.Properties != nil {
+		data, err := json.Marshal(r.Properties)
+		if err != nil {
+			errs.NewBadRequestError(err).Abort(c)
+			return
+		}
+		note.Properties = null.JSONFrom(data)
+	}
+
+	err := note.Insert(db, boil.Infer())
+
+	resp := makeNoteDTO(note)
+	concludeRequest(c, resp, err)
+}
+
+func (a *App) handleUpdateNote(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	var r UpdateNoteRequest
+	if c.BindJSON(&r) != nil {
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	note, err := models.Notes(
+		models.NoteWhere.ID.EQ(id),
+		models.NoteWhere.UserID.EQ(user.ID),
+	).One(db)
+
+	if r.Content != "" {
+		note.Content = r.Content
+	}
+	if r.Properties != nil {
+		props, err := json.Marshal(r.Properties)
+		if err != nil {
+			errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+			return
+
+		}
+		note.Properties = null.JSONFrom(props)
+	}
+
+	if _, err = note.Update(db, boil.Infer()); err != nil {
+		errs.NewInternalError(pkgerr.Wrap(err, "update note exception")).Abort(c)
+		return
+	}
+	err = note.Reload(db)
+	concludeRequest(c, note, err)
+}
+
+func (a *App) handleDeleteNote(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 0)
+	if err != nil {
+		errs.NewBadRequestError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+
+	user := &models.User{}
+	if err := a.validateUser(c, user); err != nil {
+		err.Abort(c)
+		return
+	}
+
+	db := c.MustGet("MY_DB").(*sql.DB)
+	n, err := models.Notes(models.NoteWhere.ID.EQ(id), models.NoteWhere.UserID.EQ(user.ID)).One(db)
+	if err != nil {
+		errs.NewInternalError(pkgerr.Wrap(err, "id expects int64")).Abort(c)
+		return
+	}
+	_, err = n.Delete(db)
+	concludeRequest(c, nil, err)
+}
+
 //help functions
 
 func (a *App) validateUser(c *gin.Context, user *models.User) *errs.HttpError {
@@ -1411,6 +1553,24 @@ func makeFoldersDTO(folder *models.Folder) *Folder {
 			resp.BookmarkIds[i] = bbf.BookmarkID
 		}
 	}
+
+	return &resp
+}
+
+func makeNoteDTO(note *models.Note) *Note {
+	resp := Note{
+		ID: note.ID,
+	}
+
+	resp.Language = note.Language
+	resp.SubjectUID = note.SubjectUID
+	resp.CreatedAt = note.CreatedAt
+
+	if note.Properties.Valid {
+		utils.Must(note.Properties.Unmarshal(&resp.Properties))
+	}
+
+	resp.Content = note.Content
 
 	return &resp
 }
