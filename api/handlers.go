@@ -358,6 +358,14 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 				ContentUnitUID: item.ContentUnitUID,
 				Name:           item.Name,
 			}
+			if item.Properties != nil {
+				data, err := json.Marshal(item.Properties)
+				if err != nil {
+					errs.NewBadRequestError(err).Abort(c)
+					continue
+				}
+				items[i].Properties = null.JSONFrom(data)
+			}
 		}
 
 		// enforce max playlist length
@@ -438,8 +446,20 @@ func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 			item.Position = itemInfo.Position
 			item.ContentUnitUID = itemInfo.ContentUnitUID
 			item.Name = itemInfo.Name
-			if _, err := item.Update(tx, boil.Whitelist(models.PlaylistItemColumns.Position,
-				models.PlaylistItemColumns.ContentUnitUID, models.PlaylistItemColumns.Name)); err != nil {
+			if itemInfo.Properties != nil {
+				data, err := json.Marshal(itemInfo.Properties)
+				if err != nil {
+					errs.NewBadRequestError(err).Abort(c)
+					continue
+				}
+				item.Properties = null.JSONFrom(data)
+			}
+			if _, err := item.Update(tx,
+				boil.Whitelist(models.PlaylistItemColumns.Position,
+					models.PlaylistItemColumns.ContentUnitUID,
+					models.PlaylistItemColumns.Name,
+					models.PlaylistItemColumns.Properties,
+				)); err != nil {
 				return pkgerr.Wrap(err, "update playlist item in db")
 			}
 		}
@@ -1509,6 +1529,10 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 				Position:       item.Position,
 				ContentUnitUID: item.ContentUnitUID,
 				Name:           item.Name.String,
+			}
+
+			if item.Properties.Valid {
+				utils.Must(item.Properties.Unmarshal(&resp.Items[i].Properties))
 			}
 		}
 	}
