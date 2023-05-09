@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -22,10 +23,11 @@ import (
 
 // PlaylistItem is an object representing the database table.
 type PlaylistItem struct {
-	ID             int64  `boil:"id" json:"id" toml:"id" yaml:"id"`
-	PlaylistID     int64  `boil:"playlist_id" json:"playlist_id" toml:"playlist_id" yaml:"playlist_id"`
-	Position       int    `boil:"position" json:"position" toml:"position" yaml:"position"`
-	ContentUnitUID string `boil:"content_unit_uid" json:"content_unit_uid" toml:"content_unit_uid" yaml:"content_unit_uid"`
+	ID             int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	PlaylistID     int64       `boil:"playlist_id" json:"playlist_id" toml:"playlist_id" yaml:"playlist_id"`
+	Position       int         `boil:"position" json:"position" toml:"position" yaml:"position"`
+	ContentUnitUID string      `boil:"content_unit_uid" json:"content_unit_uid" toml:"content_unit_uid" yaml:"content_unit_uid"`
+	Name           null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
 
 	R *playlistItemR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L playlistItemL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -36,11 +38,13 @@ var PlaylistItemColumns = struct {
 	PlaylistID     string
 	Position       string
 	ContentUnitUID string
+	Name           string
 }{
 	ID:             "id",
 	PlaylistID:     "playlist_id",
 	Position:       "position",
 	ContentUnitUID: "content_unit_uid",
+	Name:           "name",
 }
 
 var PlaylistItemTableColumns = struct {
@@ -48,11 +52,13 @@ var PlaylistItemTableColumns = struct {
 	PlaylistID     string
 	Position       string
 	ContentUnitUID string
+	Name           string
 }{
 	ID:             "playlist_items.id",
 	PlaylistID:     "playlist_items.playlist_id",
 	Position:       "playlist_items.position",
 	ContentUnitUID: "playlist_items.content_unit_uid",
+	Name:           "playlist_items.name",
 }
 
 // Generated where
@@ -85,11 +91,13 @@ var PlaylistItemWhere = struct {
 	PlaylistID     whereHelperint64
 	Position       whereHelperint
 	ContentUnitUID whereHelperstring
+	Name           whereHelpernull_String
 }{
 	ID:             whereHelperint64{field: "\"playlist_items\".\"id\""},
 	PlaylistID:     whereHelperint64{field: "\"playlist_items\".\"playlist_id\""},
 	Position:       whereHelperint{field: "\"playlist_items\".\"position\""},
 	ContentUnitUID: whereHelperstring{field: "\"playlist_items\".\"content_unit_uid\""},
+	Name:           whereHelpernull_String{field: "\"playlist_items\".\"name\""},
 }
 
 // PlaylistItemRels is where relationship names are stored.
@@ -113,9 +121,9 @@ func (*playlistItemR) NewStruct() *playlistItemR {
 type playlistItemL struct{}
 
 var (
-	playlistItemAllColumns            = []string{"id", "playlist_id", "position", "content_unit_uid"}
+	playlistItemAllColumns            = []string{"id", "playlist_id", "position", "content_unit_uid", "name"}
 	playlistItemColumnsWithoutDefault = []string{"playlist_id", "position", "content_unit_uid"}
-	playlistItemColumnsWithDefault    = []string{"id"}
+	playlistItemColumnsWithDefault    = []string{"id", "name"}
 	playlistItemPrimaryKeyColumns     = []string{"id"}
 	playlistItemGeneratedColumns      = []string{}
 )

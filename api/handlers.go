@@ -356,6 +356,7 @@ func (a *App) handleAddPlaylistItems(c *gin.Context) {
 			items[i] = &models.PlaylistItem{
 				Position:       p,
 				ContentUnitUID: item.ContentUnitUID,
+				Name:           item.Name,
 			}
 		}
 
@@ -436,8 +437,9 @@ func (a *App) handleUpdatePlaylistItems(c *gin.Context) {
 
 			item.Position = itemInfo.Position
 			item.ContentUnitUID = itemInfo.ContentUnitUID
+			item.Name = itemInfo.Name
 			if _, err := item.Update(tx, boil.Whitelist(models.PlaylistItemColumns.Position,
-				models.PlaylistItemColumns.ContentUnitUID)); err != nil {
+				models.PlaylistItemColumns.ContentUnitUID, models.PlaylistItemColumns.Name)); err != nil {
 				return pkgerr.Wrap(err, "update playlist item in db")
 			}
 		}
@@ -1506,6 +1508,7 @@ func makePlaylistDTO(playlist *models.Playlist) *Playlist {
 				ID:             item.ID,
 				Position:       item.Position,
 				ContentUnitUID: item.ContentUnitUID,
+				Name:           item.Name.String,
 			}
 		}
 	}
