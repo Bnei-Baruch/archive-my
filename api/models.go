@@ -63,9 +63,10 @@ type PlaylistRequest struct {
 
 //PlaylistItem
 type PlaylistItemAddInfo struct {
-	Position       int         `json:"position" binding:"required"`
-	ContentUnitUID string      `json:"content_unit_uid" binding:"required,len=8"`
-	Name           null.String `json:"name" binding:"omitempty,max=256"`
+	Position       int                    `json:"position" binding:"required"`
+	ContentUnitUID string                 `json:"content_unit_uid" binding:"required,len=8"`
+	Name           null.String            `json:"name" binding:"omitempty,max=256"`
+	Properties     map[string]interface{} `json:"properties" binding:"omitempty"`
 }
 
 type AddPlaylistItemsRequest struct {
@@ -226,10 +227,11 @@ type Playlist struct {
 }
 
 type PlaylistItem struct {
-	ID             int64  `json:"id"`
-	Position       int    `json:"position"`
-	ContentUnitUID string `json:"content_unit_uid"`
-	Name           string `json:"name"`
+	ID             int64                  `json:"id"`
+	Position       int                    `json:"position"`
+	ContentUnitUID string                 `json:"content_unit_uid"`
+	Name           string                 `json:"name"`
+	Properties     map[string]interface{} `json:"properties"`
 }
 
 type Reaction struct {

@@ -28,6 +28,7 @@ type PlaylistItem struct {
 	Position       int         `boil:"position" json:"position" toml:"position" yaml:"position"`
 	ContentUnitUID string      `boil:"content_unit_uid" json:"content_unit_uid" toml:"content_unit_uid" yaml:"content_unit_uid"`
 	Name           null.String `boil:"name" json:"name,omitempty" toml:"name" yaml:"name,omitempty"`
+	Properties     null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
 
 	R *playlistItemR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L playlistItemL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -39,12 +40,14 @@ var PlaylistItemColumns = struct {
 	Position       string
 	ContentUnitUID string
 	Name           string
+	Properties     string
 }{
 	ID:             "id",
 	PlaylistID:     "playlist_id",
 	Position:       "position",
 	ContentUnitUID: "content_unit_uid",
 	Name:           "name",
+	Properties:     "properties",
 }
 
 var PlaylistItemTableColumns = struct {
@@ -53,12 +56,14 @@ var PlaylistItemTableColumns = struct {
 	Position       string
 	ContentUnitUID string
 	Name           string
+	Properties     string
 }{
 	ID:             "playlist_items.id",
 	PlaylistID:     "playlist_items.playlist_id",
 	Position:       "playlist_items.position",
 	ContentUnitUID: "playlist_items.content_unit_uid",
 	Name:           "playlist_items.name",
+	Properties:     "playlist_items.properties",
 }
 
 // Generated where
@@ -92,12 +97,14 @@ var PlaylistItemWhere = struct {
 	Position       whereHelperint
 	ContentUnitUID whereHelperstring
 	Name           whereHelpernull_String
+	Properties     whereHelpernull_JSON
 }{
 	ID:             whereHelperint64{field: "\"playlist_items\".\"id\""},
 	PlaylistID:     whereHelperint64{field: "\"playlist_items\".\"playlist_id\""},
 	Position:       whereHelperint{field: "\"playlist_items\".\"position\""},
 	ContentUnitUID: whereHelperstring{field: "\"playlist_items\".\"content_unit_uid\""},
 	Name:           whereHelpernull_String{field: "\"playlist_items\".\"name\""},
+	Properties:     whereHelpernull_JSON{field: "\"playlist_items\".\"properties\""},
 }
 
 // PlaylistItemRels is where relationship names are stored.
@@ -121,9 +128,9 @@ func (*playlistItemR) NewStruct() *playlistItemR {
 type playlistItemL struct{}
 
 var (
-	playlistItemAllColumns            = []string{"id", "playlist_id", "position", "content_unit_uid", "name"}
+	playlistItemAllColumns            = []string{"id", "playlist_id", "position", "content_unit_uid", "name", "properties"}
 	playlistItemColumnsWithoutDefault = []string{"playlist_id", "position", "content_unit_uid"}
-	playlistItemColumnsWithDefault    = []string{"id", "name"}
+	playlistItemColumnsWithDefault    = []string{"id", "name", "properties"}
 	playlistItemPrimaryKeyColumns     = []string{"id"}
 	playlistItemGeneratedColumns      = []string{}
 )
