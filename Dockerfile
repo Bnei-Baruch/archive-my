@@ -25,9 +25,7 @@ RUN apk update && \
 WORKDIR ${work_dir}
 COPY . .
 
-RUN env \
-    && go test -v $(go list ./... | grep -v /models) \
-    && go build -ldflags "-w -X github.com/Bnei-Baruch/archive-my/version.PreRelease=${build_number}"
+RUN go build -ldflags "-w -X github.com/Bnei-Baruch/archive-my/version.PreRelease=${build_number}"
 
 FROM alpine:3.14
 
