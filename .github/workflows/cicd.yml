@@ -64,7 +64,6 @@ jobs:
           MYDB_URL: postgres://user:password@localhost/mydb?sslmode=disable
           MDB_URL: postgres://user:password@localhost:5433/mdb?sslmode=disable
         run: |
-          mv config.sample.toml config.toml
           set -o pipefail
           go test -v $(go list ./... | grep -v /models) | tee test.log
         continue-on-error: false
