@@ -14,3 +14,4 @@ _vendor-*/
 
 archive-my
 sqlboiler.toml
+.DS_Store

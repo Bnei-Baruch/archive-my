@@ -21,9 +21,6 @@ type ModelsSuite struct {
 func (s *ModelsSuite) CreateUser() *models.User {
 	user := &models.User{
 		AccountsID: utils.GenerateName(36),
-		Email:      null.StringFrom("user@example.com"),
-		FirstName:  null.StringFrom("first"),
-		LastName:   null.StringFrom("last"),
 	}
 	s.Require().NoError(user.Insert(s.MyDB.DB, boil.Infer()))
 	return user

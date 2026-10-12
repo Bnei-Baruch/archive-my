@@ -10,7 +10,6 @@ import (
 	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
 	pkgerr "github.com/pkg/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/Bnei-Baruch/archive-my/databases/mydb/models"
@@ -152,9 +151,6 @@ func (a *Auth) getOrCreateUser() error {
 
 	user := &models.User{
 		AccountsID: a.claims.Sub,
-		Email:      null.StringFrom(a.claims.Email),
-		FirstName:  null.StringFrom(a.claims.GivenName),
-		LastName:   null.StringFrom(a.claims.FamilyName),
 		Disabled:   false,
 	}
 
