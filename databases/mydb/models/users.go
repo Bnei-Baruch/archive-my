@@ -23,16 +23,13 @@ import (
 
 // User is an object representing the database table.
 type User struct {
-	ID         int64       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	AccountsID string      `boil:"accounts_id" json:"accounts_id" toml:"accounts_id" yaml:"accounts_id"`
-	Email      null.String `boil:"email" json:"email,omitempty" toml:"email" yaml:"email,omitempty"`
-	FirstName  null.String `boil:"first_name" json:"first_name,omitempty" toml:"first_name" yaml:"first_name,omitempty"`
-	LastName   null.String `boil:"last_name" json:"last_name,omitempty" toml:"last_name" yaml:"last_name,omitempty"`
-	Disabled   bool        `boil:"disabled" json:"disabled" toml:"disabled" yaml:"disabled"`
-	Properties null.JSON   `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
-	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt  null.Time   `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
-	RemovedAt  null.Time   `boil:"removed_at" json:"removed_at,omitempty" toml:"removed_at" yaml:"removed_at,omitempty"`
+	ID         int64     `boil:"id" json:"id" toml:"id" yaml:"id"`
+	AccountsID string    `boil:"accounts_id" json:"accounts_id" toml:"accounts_id" yaml:"accounts_id"`
+	Disabled   bool      `boil:"disabled" json:"disabled" toml:"disabled" yaml:"disabled"`
+	Properties null.JSON `boil:"properties" json:"properties,omitempty" toml:"properties" yaml:"properties,omitempty"`
+	CreatedAt  time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt  null.Time `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
+	RemovedAt  null.Time `boil:"removed_at" json:"removed_at,omitempty" toml:"removed_at" yaml:"removed_at,omitempty"`
 
 	R *userR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -41,9 +38,6 @@ type User struct {
 var UserColumns = struct {
 	ID         string
 	AccountsID string
-	Email      string
-	FirstName  string
-	LastName   string
 	Disabled   string
 	Properties string
 	CreatedAt  string
@@ -52,9 +46,6 @@ var UserColumns = struct {
 }{
 	ID:         "id",
 	AccountsID: "accounts_id",
-	Email:      "email",
-	FirstName:  "first_name",
-	LastName:   "last_name",
 	Disabled:   "disabled",
 	Properties: "properties",
 	CreatedAt:  "created_at",
@@ -65,9 +56,6 @@ var UserColumns = struct {
 var UserTableColumns = struct {
 	ID         string
 	AccountsID string
-	Email      string
-	FirstName  string
-	LastName   string
 	Disabled   string
 	Properties string
 	CreatedAt  string
@@ -76,9 +64,6 @@ var UserTableColumns = struct {
 }{
 	ID:         "users.id",
 	AccountsID: "users.accounts_id",
-	Email:      "users.email",
-	FirstName:  "users.first_name",
-	LastName:   "users.last_name",
 	Disabled:   "users.disabled",
 	Properties: "users.properties",
 	CreatedAt:  "users.created_at",
@@ -91,9 +76,6 @@ var UserTableColumns = struct {
 var UserWhere = struct {
 	ID         whereHelperint64
 	AccountsID whereHelperstring
-	Email      whereHelpernull_String
-	FirstName  whereHelpernull_String
-	LastName   whereHelpernull_String
 	Disabled   whereHelperbool
 	Properties whereHelpernull_JSON
 	CreatedAt  whereHelpertime_Time
@@ -102,9 +84,6 @@ var UserWhere = struct {
 }{
 	ID:         whereHelperint64{field: "\"users\".\"id\""},
 	AccountsID: whereHelperstring{field: "\"users\".\"accounts_id\""},
-	Email:      whereHelpernull_String{field: "\"users\".\"email\""},
-	FirstName:  whereHelpernull_String{field: "\"users\".\"first_name\""},
-	LastName:   whereHelpernull_String{field: "\"users\".\"last_name\""},
 	Disabled:   whereHelperbool{field: "\"users\".\"disabled\""},
 	Properties: whereHelpernull_JSON{field: "\"users\".\"properties\""},
 	CreatedAt:  whereHelpertime_Time{field: "\"users\".\"created_at\""},
@@ -151,9 +130,9 @@ func (*userR) NewStruct() *userR {
 type userL struct{}
 
 var (
-	userAllColumns            = []string{"id", "accounts_id", "email", "first_name", "last_name", "disabled", "properties", "created_at", "updated_at", "removed_at"}
+	userAllColumns            = []string{"id", "accounts_id", "disabled", "properties", "created_at", "updated_at", "removed_at"}
 	userColumnsWithoutDefault = []string{"accounts_id"}
-	userColumnsWithDefault    = []string{"id", "email", "first_name", "last_name", "disabled", "properties", "created_at", "updated_at", "removed_at"}
+	userColumnsWithDefault    = []string{"id", "disabled", "properties", "created_at", "updated_at", "removed_at"}
 	userPrimaryKeyColumns     = []string{"id"}
 	userGeneratedColumns      = []string{}
 )
